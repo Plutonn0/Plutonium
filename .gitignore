@@ -1,0 +1,9 @@
+.gradle/
+build/
+dist/
+launcher/bin/
+launcher/obj/
+run/
+.tools/
+.api*.txt
+.private-api.txt

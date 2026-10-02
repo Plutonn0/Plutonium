@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "quirkclient",
+  "version": "${version}",
+  "name": "Plutonium",
+  "description": "Plutonium features for Fabric.",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.quirk.client.fabric.QuirkFabricEntrypoint"
+    ]
+  },
+  "mixins": [
+    "quirk.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.quirk.client.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "quirk.refmap.json",
+  "client": [
+    "BlockStateBaseMixin",
+    "CameraMixin",
+    "CameraAccess",
+    "ClientInputAccessor",
+    "EntityMixin",
+    "GameRendererAccessor",
+    "GameRendererMixin",
+    "GuiMixin",
+    "KeyboardHandlerMixin",
+    "KeyboardInputMixin",
+    "LightTextureMixin",
+    "MinecraftMixin",
+    "MinecraftAccess",
+    "RadioSoundBufferMixin",
+    "LevelRendererMixin",
+    "EntityRendererMixin",
+    "ClientPacketListenerMixin",
+    "LiquidBlockRendererMixin",
+    "AvatarRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

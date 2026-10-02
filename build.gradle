@@ -1,0 +1,71 @@
+plugins { id 'java' }
+
+group = 'com.quirk'
+version = '1.0.0'
+repositories { mavenCentral(); maven { url = 'https://maven.fabricmc.net/' } }
+java { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
+tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
+
+sourceSets {
+    tooling { java.srcDir 'tooling/src/main/java' }
+    main { compileClasspath += files('build/game/named.jar') + fileTree('build/game/libraries') { include '*.jar' } }
+    test { compileClasspath += sourceSets.main.compileClasspath; runtimeClasspath += sourceSets.main.compileClasspath }
+}
+dependencies {
+    toolingImplementation 'net.fabricmc:tiny-remapper:0.12.2'
+    toolingImplementation 'net.fabricmc:mapping-io:0.8.0'
+    toolingImplementation 'org.ow2.asm:asm:9.9'
+    toolingImplementation 'org.ow2.asm:asm-tree:9.9'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+tasks.register('prepareGame', Exec) {
+    commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts/prepare.ps1'
+    outputs.files('build/game/client.jar', 'build/game/mappings.txt', 'build/game/version.json')
+}
+tasks.register('mapGame', JavaExec) {
+    dependsOn 'toolingClasses', 'prepareGame'
+    classpath = sourceSets.tooling.runtimeClasspath
+    mainClass = 'com.quirk.build.ClientBuilder'
+    args 'map', 'build/game'
+    inputs.files('build/game/client.jar', 'build/game/mappings.txt')
+    outputs.file('build/game/named.jar')
+}
+compileJava.dependsOn 'mapGame'
+tasks.register('clientJar', JavaExec) {
+    dependsOn 'jar', 'toolingClasses'
+    classpath = sourceSets.tooling.runtimeClasspath
+    mainClass = 'com.quirk.build.ClientBuilder'
+    args 'package', 'build/game', tasks.jar.archiveFile.get().asFile.absolutePath, 'build/client/plutonium-1.21.11.jar'
+    inputs.files(tasks.jar.archiveFile, 'build/game/named.jar')
+    outputs.file('build/client/plutonium-1.21.11.jar')
+}
+tasks.register('fabricModJar') {
+    dependsOn ':fabric:remapJar'
+}
+tasks.register('launcherExe', Exec) {
+    dependsOn 'clientJar', ':fabric:remapJar'
+    commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts/build-launcher.ps1'
+    inputs.dir 'launcher'
+    inputs.files('build/client/plutonium-1.21.11.jar', 'fabric/build/libs/plutonium-client-fabric-1.0.0.jar', 'build/game/version.json')
+    outputs.file('dist/Plutonium Client.exe')
+}
+tasks.register('testLauncher', Exec) {
+    dependsOn 'clientJar', ':fabric:remapJar'
+    commandLine 'dotnet', 'test', 'launcher.tests/PlutoniumLauncher.Tests.csproj', '--configuration', 'Release'
+    inputs.dir 'launcher'
+    inputs.dir 'launcher.tests'
+    inputs.files('build/client/plutonium-1.21.11.jar', 'fabric/build/libs/plutonium-client-fabric-1.0.0.jar', 'build/game/version.json')
+}
+launcherExe.configure { mustRunAfter testLauncher }
+check.dependsOn 'testLauncher'
+tasks.register('installClient', Exec) {
+    dependsOn 'clientJar', ':fabric:remapJar'
+    commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts/install.ps1'
+}
+processResources { from('licenses') { into 'META-INF/licenses' } }
+test {
+    useJUnitPlatform()
+    if (providers.gradleProperty('java21').isPresent()) executable = providers.gradleProperty('java21').get()
+}
+build.dependsOn 'clientJar', ':fabric:remapJar', 'testLauncher', 'launcherExe'

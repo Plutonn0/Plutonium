@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Plutonium Client</AssemblyName>
+    <RootNamespace>PlutoniumLauncher</RootNamespace>
+    <Version>1.0.2</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CmlLib.Core" Version="4.0.6" />
+    <PackageReference Include="CmlLib.Core.Auth.Microsoft" Version="3.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\build\client\plutonium-1.21.11.jar" LogicalName="PlutoniumLauncher.Payload.standalone.jar" />
+    <EmbeddedResource Include="..\fabric\build\libs\plutonium-client-fabric-1.0.0.jar" LogicalName="PlutoniumLauncher.Payload.fabric.jar" />
+    <EmbeddedResource Include="..\build\game\version.json" LogicalName="PlutoniumLauncher.Payload.minecraft-version.json" />
+    <EmbeddedResource Include="..\licenses\Lato-OFL.txt" LogicalName="PlutoniumLauncher.Licenses.Lato-OFL.txt" />
+    <EmbeddedResource Include="..\licenses\CmlLib-Core-MIT.txt" LogicalName="PlutoniumLauncher.Licenses.CmlLib-Core-MIT.txt" />
+    <EmbeddedResource Include="..\licenses\CmlLib-Auth-MIT.txt" LogicalName="PlutoniumLauncher.Licenses.CmlLib-Auth-MIT.txt" />
+    <Resource Include="Assets\Lato-Regular.ttf" />
+    <Resource Include="Assets\Montserrat-Regular.ttf" />
+    <EmbeddedResource Include="..\licenses\Montserrat-OFL.txt" LogicalName="PlutoniumLauncher.Licenses.Montserrat-OFL.txt" />
+  </ItemGroup>
+</Project>

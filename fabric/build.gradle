@@ -1,0 +1,56 @@
+plugins {
+    id 'fabric-loom' version '1.14.10'
+}
+
+group = 'com.quirk'
+version = '1.0.0'
+base { archivesName = 'plutonium-client-fabric' }
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+loom {
+    mixin {
+        useLegacyMixinAp = true
+        defaultRefmapName = 'quirk.refmap.json'
+    }
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['../src/main/java', 'src/main/java']
+        java.exclude { element ->
+            File source = element.file.canonicalFile
+            source == file('../src/main/java/com/quirk/client/EngineAccess.java').canonicalFile
+        }
+        resources.srcDirs = ['../src/main/resources', 'src/main/resources']
+    }
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.21.11'
+    mappings loom.officialMojangMappings()
+    modImplementation 'net.fabricmc:fabric-loader:0.19.5'
+    annotationProcessor 'net.fabricmc:sponge-mixin:0.17.4+mixin.0.8.7'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    withSourcesJar()
+}
+
