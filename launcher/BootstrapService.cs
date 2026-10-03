@@ -1,6 +1,7 @@
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.IO.Compression;
 using System.Text.Json.Nodes;
 
 namespace PlutoniumLauncher;
@@ -28,8 +29,8 @@ public sealed class BootstrapService
         progress?.Report("Verifying standalone client files");
         var installRoots = new[] { detected.MinecraftDirectory, detected.StandaloneGameDirectory }
             .Distinct(StringComparer.OrdinalIgnoreCase);
-        if (!IsNewer(config.StandaloneClientVersion, "1.0.0")
-            || !File.Exists(Path.Combine(detected.StandaloneGameDirectory, "versions", StandaloneVersion, StandaloneVersion + ".jar")))
+        if (!IsNewer(config.StandaloneClientVersion, "1.1.1")
+            || !IsReadableJar(Path.Combine(detected.StandaloneGameDirectory, "versions", StandaloneVersion, StandaloneVersion + ".jar")))
         {
             foreach (var gameDirectory in installRoots)
             {
@@ -37,7 +38,7 @@ public sealed class BootstrapService
                 Directory.CreateDirectory(versionDirectory);
                 await InstallEmbeddedAsync(StandaloneResource, Path.Combine(versionDirectory, StandaloneVersion + ".jar"), cancellationToken);
             }
-            config.StandaloneClientVersion = "1.0.0";
+            config.StandaloneClientVersion = "1.1.1";
         }
         // Metadata can go missing independently of the jar. Repair it without downgrading a newer client.
         foreach (var gameDirectory in installRoots)
@@ -51,10 +52,10 @@ public sealed class BootstrapService
         var modsDirectory = Path.Combine(detected.FabricGameDirectory, "mods");
         Directory.CreateDirectory(modsDirectory);
         var fabricMod = InstallationDiscovery.FabricModPath(detected.FabricGameDirectory);
-        if (!IsNewer(config.FabricClientVersion, "1.0.0") || !File.Exists(fabricMod))
+        if (!IsNewer(config.FabricClientVersion, "1.1.1") || !IsReadableJar(fabricMod))
         {
             await InstallEmbeddedAsync(FabricResource, fabricMod, cancellationToken);
-            config.FabricClientVersion = "1.0.0";
+            config.FabricClientVersion = "1.1.1";
         }
 
         config.MinecraftDirectory = detected.MinecraftDirectory;
@@ -68,6 +69,14 @@ public sealed class BootstrapService
         Version.TryParse(candidate, out var candidateVersion)
         && Version.TryParse(baseline, out var baselineVersion)
         && candidateVersion > baselineVersion;
+
+    private static bool IsReadableJar(string path)
+    {
+        try { using var jar = ZipFile.OpenRead(path); return jar.GetEntry("com/quirk/client/Quirk.class") is not null; }
+        catch (InvalidDataException) { return false; }
+        catch (FileNotFoundException) { return false; }
+        catch (DirectoryNotFoundException) { return false; }
+    }
 
     private async Task InstallStandaloneMetadataAsync(string target, CancellationToken cancellationToken)
     {

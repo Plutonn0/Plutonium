@@ -23,6 +23,10 @@ public partial class MainWindow : Window
     private bool _busy;
     private CancellationTokenSource? _operation;
     private AccountService? _accounts;
+    private bool _needsRepair;
+    private System.Windows.Threading.DispatcherTimer? _gameMonitor;
+    private bool _gameWindowVisible;
+    private bool _stopRequested;
 
     public MainWindow() => InitializeComponent();
 
@@ -35,6 +39,8 @@ public partial class MainWindow : Window
         try
         {
             _config = await LauncherConfig.LoadAsync();
+            ApplyPreferences();
+            Navigate("play");
             _accounts = new AccountService(_config.DataDirectory);
             RefreshAccounts();
             _installation = InstallationDiscovery.Detect(_config);
@@ -50,7 +56,8 @@ public partial class MainWindow : Window
                 ? "Legacy Quirk settings and worlds detected and preserved."
                 : "Plutonium files verified. Existing worlds, profiles, and mods are untouched.";
             InstallIndicator.Fill = (Brush)FindResource("GreenBrush");
-            await RefreshUpdateStatusAsync();
+            await RefreshUpdateStatusAsync(applyUpdates: _config.AutomaticUpdates);
+            if (await ApplyAutomaticLauncherUpdateAsync()) return;
             SetStage("READY", "Ready to play");
             var smokeProfile = GetSmokeLaunchProfile();
             if (smokeProfile is not null)
@@ -73,6 +80,8 @@ public partial class MainWindow : Window
             InstallStatus.Text = ex.Message;
             InstallIndicator.Fill = (Brush)FindResource("RedBrush");
             SetStage("ACTION NEEDED", "Setup could not finish");
+            _needsRepair = true;
+            ShowError(ex);
             if (IsSmokeTestRun && _config is not null)
             {
                 await File.WriteAllTextAsync(Path.Combine(_config.DataDirectory, "smoke-result.txt"), "FAIL\n" + ex);
@@ -82,7 +91,7 @@ public partial class MainWindow : Window
         finally
         {
             SetBusy(false);
-            if (_java is null) PlayButton.IsEnabled = false;
+            if (_needsRepair) { PlayButton.Content = "REPAIR & PLAY"; SetStage("REPAIR NEEDED", "Setup failed. Repair the installation to continue."); }
         }
     }
 
@@ -107,7 +116,7 @@ public partial class MainWindow : Window
     private void Account_Click(object sender, RoutedEventArgs e)
     {
         RefreshAccounts();
-        AccountsOverlay.Visibility = Visibility.Visible;
+        Navigate("account");
     }
 
     private async void Play_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
@@ -134,7 +143,8 @@ public partial class MainWindow : Window
         ShowSignedInAccount(_session);
 
         SetStage("UPDATING", "Checking configured Plutonium updates");
-        await RefreshUpdateStatusAsync();
+        await RefreshUpdateStatusAsync(applyUpdates: _config.AutomaticUpdates);
+        if (await ApplyAutomaticLauncherUpdateAsync()) return;
         SetStage("LAUNCHING", "Preparing Minecraft 1.21.11");
         Progress.Visibility = Visibility.Visible;
         Progress.Value = 0;
@@ -142,13 +152,16 @@ public partial class MainWindow : Window
         var byteProgress = new Progress<double>(value => Progress.Value = value * 100);
         _gameProcess = await _game.PrepareAndLaunchAsync(_config, _java!, _session, _fabricSelected,
             gameProgress, byteProgress, OperationToken);
+        _needsRepair = false;
         MonitorGameProcess(_gameProcess);
-        SetStage("PLAYING", "Minecraft is running");
-        PlayButton.Content = "PLAYING";
+        if (_gameProcess is null) return;
+        SetStage("STARTING", "Waiting for the Minecraft window");
+        PlayButton.Content = "STARTING";
     });
 
     private void ShowSignedInAccount(MSession session)
     {
+        RefreshAccounts();
         AccountName.Text = session.Username;
         AccountMark.Text = string.IsNullOrWhiteSpace(session.Username) ? "P" : session.Username[..1].ToUpperInvariant();
         AccountState.Text = "Microsoft account connected";
@@ -164,38 +177,74 @@ public partial class MainWindow : Window
         await RefreshUpdateStatusAsync(applyUpdates: true);
         InstallStatus.Text = "Plutonium files repaired and verified.";
         InstallIndicator.Fill = (Brush)FindResource("GreenBrush");
+        _needsRepair = false;
         SetStage("READY", "Repair complete");
     });
 
     private async void Updates_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
     {
-        UpdatesOverlay.Visibility = Visibility.Visible;
+        Navigate("installed");
         SetStage("CHECKING", "Checking launcher and client release feeds");
         await RefreshUpdateStatusAsync();
-        if (_gameProcess is null) SetStage("READY", "Update check complete");
+        if (_gameProcess is null) SetStage(_needsRepair ? "REPAIR NEEDED" : "READY", "Update check complete");
     });
 
     private void MonitorGameProcess(Process process)
     {
-        process.EnableRaisingEvents = true;
-        process.Exited += (_, _) => Dispatcher.InvokeAsync(() =>
+        var handled = false;
+        var started = DateTime.UtcNow;
+        var warned = false;
+        _gameWindowVisible = false;
+        _stopRequested = false;
+        StopGameButton.Visibility = Visibility.Visible;
+        void Ended()
         {
-            if (!IsLoaded) return;
+            if (handled || !IsLoaded) return;
+            handled = true;
+            _gameMonitor?.Stop();
+            StopGameButton.Visibility = Visibility.Collapsed;
+            var code = _stopRequested ? 0 : process.ExitCode;
             _gameProcess = null;
+            _needsRepair = code != 0;
             SetBusy(false);
-            PlayButton.Content = "PLAY";
-            PlayButton.IsEnabled = _java is not null;
+            PlayButton.Content = _needsRepair ? "REPAIR & PLAY" : "PLAY";
             Progress.Visibility = Visibility.Collapsed;
-            SetStage("READY", "Minecraft closed");
-        });
-        if (process.HasExited)
-        {
-            _gameProcess = null;
-            SetBusy(false);
-            PlayButton.Content = "PLAY";
-            PlayButton.IsEnabled = _java is not null;
-            SetStage("READY", "Minecraft closed");
+            if (_needsRepair)
+            {
+                var error = new InvalidOperationException($"Minecraft stopped with exit code {code}. Try Repair in the Play page.\n\n" + _game.RecentOutput);
+                SetStage("REPAIR NEEDED", $"Minecraft stopped unexpectedly (exit code {code}).");
+                InstallStatus.Text = "Minecraft failed to run. Repair and try again; the error report includes recent game output.";
+                ShowError(error);
+            }
+            else SetStage("READY", "Minecraft closed");
+            if (GetSmokeLaunchProfile() is null) process.Dispose();
         }
+        process.Exited += (_, _) => Dispatcher.InvokeAsync(Ended);
+        process.EnableRaisingEvents = true;
+        if (process.HasExited) Ended();
+        if (handled) return;
+        _gameMonitor = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _gameMonitor.Tick += (_, _) =>
+        {
+            if (handled) return;
+            process.Refresh();
+            if (process.HasExited) { Ended(); return; }
+            _gameWindowVisible = process.MainWindowHandle != IntPtr.Zero;
+            PlayButton.Content = _gameWindowVisible ? "PLAYING" : "STARTING";
+            SetStage(_gameWindowVisible ? "PLAYING" : "STARTING", _gameWindowVisible ? "Minecraft is running" : "Java is running; waiting for the Minecraft window");
+            if (!_gameWindowVisible && !warned && DateTime.UtcNow - started > TimeSpan.FromSeconds(90))
+            {
+                warned = true;
+                ShowError(new TimeoutException("Minecraft has not opened a window after 90 seconds. Use Stop Minecraft, then Repair and retry.\n\n" + _game.RecentOutput));
+            }
+        };
+        _gameMonitor.Start();
+    }
+
+    private void StopGame_Click(object sender, RoutedEventArgs e)
+    {
+        try { if (_gameProcess is { HasExited: false }) { _stopRequested = true; _gameProcess.Kill(entireProcessTree: true); } }
+        catch (Exception ex) { ShowError(ex); }
     }
 
     private async Task RunOperationAsync(Func<Task> operation)
@@ -209,12 +258,14 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            SetStage("READY", "Operation cancelled");
+            SetStage(_needsRepair ? "REPAIR NEEDED" : "READY", "Operation cancelled");
         }
         catch (Exception ex)
         {
-            InstallStatus.Text = ex.Message;
-            SetStage("ERROR", ex.Message);
+            InstallStatus.Text = ErrorReport.Redact(ex.Message);
+            if (ex is IOException or InvalidDataException) _needsRepair = true;
+            SetStage(_needsRepair ? "REPAIR NEEDED" : "ERROR", InstallStatus.Text);
+            ShowError(ex);
         }
         finally
         {
@@ -223,12 +274,12 @@ public partial class MainWindow : Window
             SetBusy(false);
             if (_gameProcess is not null && !_gameProcess.HasExited)
             {
-                PlayButton.Content = "PLAYING";
+                PlayButton.Content = _gameWindowVisible ? "PLAYING" : "STARTING";
                 PlayButton.IsEnabled = false;
             }
-            else if (_java is not null)
+            else if (_config is not null)
             {
-                PlayButton.Content = "PLAY";
+                PlayButton.Content = _needsRepair ? "REPAIR & PLAY" : "PLAY";
                 PlayButton.IsEnabled = true;
             }
             Progress.Visibility = Visibility.Collapsed;
@@ -240,7 +291,7 @@ public partial class MainWindow : Window
         _busy = busy;
         AccountButton.IsEnabled = !busy;
         UpdateButton.IsEnabled = !busy;
-        PlayButton.IsEnabled = !busy && _java is not null && _gameProcess is null;
+        PlayButton.IsEnabled = !busy && _config is not null && _gameProcess is null;
         StandaloneButton.IsEnabled = FabricButton.IsEnabled = !busy && _gameProcess is null;
         RepairButton.IsEnabled = SettingsButton.IsEnabled = !busy && _gameProcess is null;
         AccountButton.IsEnabled = UpdateButton.IsEnabled = !busy && _gameProcess is null;
@@ -296,6 +347,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _gameMonitor?.Stop();
         _operation?.Cancel();
         base.OnClosed(e);
     }
@@ -358,7 +410,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            InstallStatus.Text = ex.Message;
+            InstallStatus.Text = ErrorReport.Redact(ex.Message);
+            ShowError(ex);
         }
     }
 
@@ -396,12 +449,15 @@ public partial class MainWindow : Window
             var session = MSession.CreateOfflineSession("PlutoniumSmoke");
             game = await _game.PrepareAndLaunchAsync(_config, _java, session, fabric,
                 new Progress<string>(SetInstallProgress), new Progress<double>(value => Progress.Value = value * 100));
+            _gameProcess = game;
+            MonitorGameProcess(game);
             var logPath = Path.Combine(gameDirectory, "logs", "latest.log");
             var started = false;
             for (var attempt = 0; attempt < 120 && !game.HasExited; attempt++)
             {
                 await Task.Delay(500);
-                if (game.MainWindowHandle != IntPtr.Zero)
+                game.Refresh();
+                if (attempt >= 20 && _gameWindowVisible && PlayButton.Content?.ToString() == "PLAYING")
                 {
                     started = true;
                     break;
@@ -410,14 +466,18 @@ public partial class MainWindow : Window
             var exitCode = game.HasExited ? game.ExitCode : (int?)null;
             if (!game.HasExited)
             {
+                _stopRequested = true;
                 game.Kill(entireProcessTree: true);
                 await game.WaitForExitAsync();
             }
+            await Task.Delay(200);
             if (!started)
             {
                 var log = File.Exists(logPath) ? await File.ReadAllTextAsync(logPath) : "Minecraft did not create a log.";
                 throw new InvalidOperationException($"{profileName} launch did not reach the game startup marker. Exit code: {exitCode?.ToString() ?? "running"}. {log[^Math.Min(log.Length, 2500)..]}");
             }
+            if (_gameProcess is not null || PlayButton.Content?.ToString() != "PLAY")
+                throw new InvalidOperationException("Launcher did not clear its Playing state after Minecraft exited.");
             await File.WriteAllTextAsync(Path.Combine(_config.DataDirectory, "launch-smoke-" + profileName + ".txt"),
                 $"PASS\nProfile={profileName}\nMinecraft={gameDirectory}\nJava={_java.DisplayVersion}\n");
         }

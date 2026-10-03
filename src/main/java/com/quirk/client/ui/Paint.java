@@ -8,7 +8,8 @@ import java.util.Locale;
 
 public final class Paint {
     public static final int TEXT = 0xffeeeeee, MUTED = 0xff969696, ACCENT = 0xffcccccc, MINT = 0xffdddddd;
-    private static final Style FONT = Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath("plutonium", "ui")));
+    // The standalone game's built-in resource pack exposes the minecraft namespace.
+    private static final Style FONT = Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath("minecraft", "quirk")));
     public static Component label(String text) { return Component.literal(text).withStyle(FONT); }
     public static int width(String text) { return (int)Math.ceil(Minecraft.getInstance().font.width(label(text)) * 0.5); }
     public static void text(GuiGraphics g, String s, int x, int y, int color) {

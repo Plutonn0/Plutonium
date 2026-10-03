@@ -13,6 +13,14 @@ namespace PlutoniumLauncher;
 
 public sealed class MinecraftLaunchService
 {
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> _recentOutput = new();
+    public string RecentOutput => string.Join(Environment.NewLine, _recentOutput);
+    private void Capture(string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return;
+        _recentOutput.Enqueue(ErrorReport.Redact(line));
+        while (_recentOutput.Count > 40) _recentOutput.TryDequeue(out _);
+    }
     private const string GameVersion = "1.21.11";
     private const string StandaloneVersion = "plutonium-1.21.11";
     private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromMinutes(10) };
@@ -59,7 +67,16 @@ public sealed class MinecraftLaunchService
         var process = await launcher.InstallAndBuildProcessAsync(version, launchOptions, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report("Launching Minecraft");
+        _recentOutput.Clear();
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.CreateNoWindow = true;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.RedirectStandardError = true;
+        process.OutputDataReceived += (_, e) => Capture(e.Data);
+        process.ErrorDataReceived += (_, e) => Capture(e.Data);
         if (!process.Start()) throw new InvalidOperationException("Windows could not start the Minecraft process.");
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
         return process;
     }
 }

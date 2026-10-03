@@ -67,11 +67,13 @@ public sealed class AccountAndUpdateTests : IDisposable
         var directory = Path.Combine(config.MinecraftDirectory, "versions", "plutonium-1.21.11");
         var jar = Path.Combine(directory, "plutonium-1.21.11.jar");
         var metadata = Path.Combine(directory, "plutonium-1.21.11.json");
-        await File.WriteAllTextAsync(jar, "newer client fixture");
+        using (var archive = System.IO.Compression.ZipFile.Open(jar, System.IO.Compression.ZipArchiveMode.Update))
+        { using var writer = new StreamWriter(archive.CreateEntry("new-release.txt").Open()); writer.Write("newer client fixture"); }
+        var newerHash = SHA256.HashData(await File.ReadAllBytesAsync(jar));
         config.StandaloneClientVersion = "2.0.0";
         File.Delete(metadata);
         await bootstrap.InstallOrRepairAsync(config);
-        Assert.Equal("newer client fixture", await File.ReadAllTextAsync(jar));
+        Assert.Equal(newerHash, SHA256.HashData(await File.ReadAllBytesAsync(jar)));
         Assert.True(File.Exists(metadata));
         Assert.Equal("2.0.0", config.StandaloneClientVersion);
     }
@@ -82,8 +84,23 @@ public sealed class AccountAndUpdateTests : IDisposable
         var config = Config();
         config.StandaloneClientVersion = config.FabricClientVersion = "2.0.0";
         await new BootstrapService().InstallOrRepairAsync(config);
-        Assert.Equal("1.0.0", config.StandaloneClientVersion);
-        Assert.Equal("1.0.0", config.FabricClientVersion);
+        Assert.Equal("1.1.1", config.StandaloneClientVersion);
+        Assert.Equal("1.1.1", config.FabricClientVersion);
+    }
+
+    [Fact]
+    public async Task CorruptedNewerClientIsRepairedInsteadOfBeingMarkedReady()
+    {
+        var config = Config();
+        var bootstrap = new BootstrapService();
+        await bootstrap.InstallOrRepairAsync(config);
+        var target = Path.Combine(config.StandaloneGameDirectory, "versions", "plutonium-1.21.11", "plutonium-1.21.11.jar");
+        await File.WriteAllTextAsync(target, "truncated downloaded release");
+        config.StandaloneClientVersion = "2.0.0";
+        await bootstrap.InstallOrRepairAsync(config);
+        using var jar = System.IO.Compression.ZipFile.OpenRead(target);
+        Assert.NotNull(jar.GetEntry("com/quirk/client/Quirk.class"));
+        Assert.Equal("1.1.1", config.StandaloneClientVersion);
     }
 
     [Fact]

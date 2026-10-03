@@ -2,6 +2,11 @@ package com.quirk.client;
 
 public final class Geometry {
     private Geometry() {}
+    /** Unproject the crosshair through the actual rendered matrix, including optional camera effects. */
+    public static org.joml.Vector3f tracerOrigin(org.joml.Matrix4f viewProjection) {
+        var p = new org.joml.Vector4f(0, 0, 0, 1).mul(new org.joml.Matrix4f(viewProjection).invert());
+        return new org.joml.Vector3f(p.x / p.w, p.y / p.w, p.z / p.w);
+    }
     /** Liang-Barsky clipping avoids huge offscreen geometry close to the camera. */
     public static double[] clip(double ax,double ay,double bx,double by,double width,double height) {
         if(!Double.isFinite(ax+ay+bx+by)) return null;

@@ -9,6 +9,13 @@ public partial class MainWindow
     private LauncherUpdateManifest? _launcherRelease;
     private bool _clientUpdateNeeded;
 
+    private async Task<bool> ApplyAutomaticLauncherUpdateAsync()
+    {
+        if (_config?.AutomaticUpdates != true || _launcherRelease is null || IsSmokeTestRun || GetSmokeLaunchProfile() is not null) return false;
+        await DownloadLauncherUpdateAsync();
+        return true;
+    }
+
     private async Task RefreshUpdateStatusAsync(bool applyUpdates = false)
     {
         if (_config is null) return;
@@ -36,7 +43,8 @@ public partial class MainWindow
         }
         catch (Exception ex) when (!OperationToken.IsCancellationRequested && ex is not OutOfMemoryException)
         {
-            ClientUpdateDetail.Text = "Could not check client updates. Your installed version is still available.";
+            ClientUpdateDetail.Text = "Client update check failed: " + ErrorReport.Redact(ex.Message);
+            ShowError(new IOException("Client update check failed: " + ex.Message, ex));
         }
         using var launcherTimeout = CancellationTokenSource.CreateLinkedTokenSource(OperationToken);
         launcherTimeout.CancelAfter(TimeSpan.FromSeconds(15));
@@ -48,7 +56,8 @@ public partial class MainWindow
         }
         catch (Exception ex) when (!OperationToken.IsCancellationRequested && ex is not OutOfMemoryException)
         {
-            LauncherUpdateDetail.Text = "Could not check launcher updates. Try again later.";
+            LauncherUpdateDetail.Text = "Launcher update check failed: " + ErrorReport.Redact(ex.Message);
+            ShowError(new IOException("Launcher update check failed: " + ex.Message, ex));
         }
         OperationToken.ThrowIfCancellationRequested();
         if (applyUpdates && _clientUpdateNeeded) await InstallClientUpdateAsync();
@@ -89,7 +98,9 @@ public partial class MainWindow
         await RefreshUpdateStatusAsync();
     });
 
-    private async void InstallLauncherUpdate_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
+    private async void InstallLauncherUpdate_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(DownloadLauncherUpdateAsync);
+
+    private async Task DownloadLauncherUpdateAsync()
     {
         if (_launcherRelease is null || _config is null) return;
         SetStage("UPDATING", $"Downloading launcher {_launcherRelease.Version}");
@@ -99,7 +110,7 @@ public partial class MainWindow
             new Progress<double>(value => Progress.Value = value * 100), OperationToken);
         OperationToken.ThrowIfCancellationRequested();
         ScheduleLauncherUpdate(staged);
-    });
+    }
 
-    private void CloseUpdates_Click(object sender, RoutedEventArgs e) => UpdatesOverlay.Visibility = Visibility.Collapsed;
+    private void CloseUpdates_Click(object sender, RoutedEventArgs e) => Navigate("play");
 }

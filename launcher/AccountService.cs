@@ -6,7 +6,7 @@ using XboxAuthNet.Game.Accounts;
 
 namespace PlutoniumLauncher;
 
-public sealed record SavedAccount(string Id, string Name);
+public sealed record SavedAccount(string Id, string Name, string? SkinUrl = null);
 
 public sealed class AccountService
 {
@@ -22,7 +22,7 @@ public sealed class AccountService
     public IReadOnlyList<SavedAccount> GetAccounts() => _login.AccountManager.GetAccounts()
         .OfType<JEGameAccount>()
         .Where(account => !string.IsNullOrWhiteSpace(account.Identifier))
-        .Select(account => new SavedAccount(account.Identifier!, account.Profile?.Username ?? account.Gamertag ?? "Minecraft account"))
+        .Select(account => new SavedAccount(account.Identifier!, account.Profile?.Username ?? account.Gamertag ?? "Minecraft account", account.Profile?.Skins?.FirstOrDefault()?.Url))
         .OrderBy(account => account.Name, StringComparer.OrdinalIgnoreCase).ToArray();
 
     public async Task<(SavedAccount Account, MSession Session)> AddAsync(CancellationToken cancellationToken)

@@ -1,8 +1,12 @@
 .gradle/
-build/
+/build/
+/fabric/build/
+/bin/
 dist/
 launcher/bin/
 launcher/obj/
+launcher.tests/bin/
+launcher.tests/obj/
 run/
 .tools/
 .api*.txt

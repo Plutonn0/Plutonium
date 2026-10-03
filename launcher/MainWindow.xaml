@@ -1,8 +1,8 @@
-<Window x:Class="PlutoniumLauncher.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" Title="Plutonium Client" Width="1060" Height="720" MinWidth="960" MinHeight="680" WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize" Background="#090909" Foreground="#F1F1F1" FontFamily="{StaticResource Lato}" UseLayoutRounding="True" SnapsToDevicePixels="True" Loaded="Window_Loaded" TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="PlutoniumLauncher.MainWindow" Title="Plutonium Client" Width="1180" Height="760" MinWidth="1120" MinHeight="680" WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize" Background="{DynamicResource CanvasBrush}" Foreground="#F1F1F1" FontFamily="{StaticResource Lato}" UseLayoutRounding="True" SnapsToDevicePixels="True" Loaded="Window_Loaded" TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType" Icon="Assets/Plutonium.ico">
     <WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
-    <Border Margin="1" BorderBrush="#303030" BorderThickness="1" Background="#090909">
+    <Border Margin="1" BorderBrush="#303030" BorderThickness="1" Background="{DynamicResource CanvasBrush}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="56" />
@@ -16,8 +16,8 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsHitTestVisible="False">
-                        <Rectangle Width="8" Height="8" Fill="White" Margin="0,0,12,0" />
-                        <TextBlock Text="PLUTONIUM" FontSize="12" />
+                        <Image Source="Assets/Plutonium.png" Width="28" Height="28" Margin="0,0,12,0" />
+                        <TextBlock Text="PLUTONIUM" FontSize="12" VerticalAlignment="Center" Margin="0,3,0,0" />
                         <TextBlock Text=" / LAUNCHER" FontSize="10" Foreground="#666666" VerticalAlignment="Center" Margin="12,0,0,0" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -28,116 +28,215 @@
                     </StackPanel>
                 </Grid>
             </Border>
-            <Grid Grid.Row="1" Margin="40,36,40,28">
+            <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.35*" />
-                    <ColumnDefinition Width="46" />
+                    <ColumnDefinition Width="158" />
                     <ColumnDefinition />
                 </Grid.ColumnDefinitions>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="MINECRAFT JAVA EDITION" Foreground="#777777" FontSize="10" Margin="0,0,0,18" />
-                        <TextBlock Text="PLUTONIUM" FontSize="40" />
-                        <TextBlock Text="Your client. Your settings. Your game." FontSize="12" Foreground="#999999" Margin="0,12,0,0" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="1" Margin="0,34,0,0">
-                        <TextBlock Text="LAUNCH PROFILE" FontSize="10" Foreground="#777777" />
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition />
-                            </Grid.ColumnDefinitions>
-                            <Button x:Name="StandaloneButton" Content="STANDALONE" Click="Standalone_Click" Style="{StaticResource QuietButton}" />
-                            <Button x:Name="FabricButton" Grid.Column="2" Content="FABRIC" Click="Fabric_Click" Style="{StaticResource QuietButton}" />
-                        </Grid>
-                    </StackPanel>
-                    <StackPanel Grid.Row="2" VerticalAlignment="Center" Margin="0,22,0,22">
-                        <TextBlock x:Name="ProfileName" Text="Plutonium Client" FontSize="21" />
-                        <TextBlock x:Name="ProfileDetails" Text="Standalone · Minecraft 1.21.11" Foreground="#888888" FontSize="11" Margin="0,8,0,0" />
-                        <StackPanel Orientation="Horizontal" Margin="0,24,0,0">
-                            <TextBlock Text="1.21.11" FontSize="11" />
-                            <TextBlock Text=" / " Foreground="#444444" Margin="12,0" />
-                            <TextBlock x:Name="JavaVersion" Text="Checking Java" FontSize="11" Foreground="#999999" />
-                            <TextBlock x:Name="StatusBadge" Text="CHECKING" Margin="22,0,0,0" FontSize="10" Foreground="#BBBBBB" VerticalAlignment="Center" />
+                <Border BorderBrush="#242424" BorderThickness="0,0,1,0" Padding="12,26,12,18">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Bottom" Content="WEBSITE ↗" Style="{StaticResource QuietButton}" Click="Website_Click" FontSize="10" />
+                        <StackPanel x:Name="Navigation">
+                            <Button Content="Play" Tag="play" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
+                            <Button Content="Account" Tag="account" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
+                            <Button Content="Installed" Tag="installed" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
+                            <Button Content="Files" Tag="files" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
+                            <Button Content="Preferred theme" Tag="theme" Click="Navigate_Click" Style="{StaticResource QuietButton}" FontSize="11" />
                         </StackPanel>
-                    </StackPanel>
-                    <StackPanel Grid.Row="3">
-                        <Button x:Name="PlayButton" Content="PLAY" Style="{StaticResource QuietButton}" Height="58" Background="#F0F0F0" Foreground="#090909" BorderBrush="#F0F0F0" FontSize="14" FontWeight="SemiBold" Click="Play_Click" />
-                        <ProgressBar x:Name="Progress" Height="2" Margin="0,10,0,0" Minimum="0" Maximum="100" Background="#222222" Foreground="White" Visibility="Collapsed" />
-                        <Grid Margin="0,16,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition />
-                            </Grid.ColumnDefinitions>
-                            <Ellipse x:Name="ActivityDot" Width="5" Height="5" Fill="#BBBBBB" VerticalAlignment="Top" Margin="0,5,10,0" />
-                            <TextBlock x:Name="ActivityText" Grid.Column="1" Text="Checking your installation" Foreground="#888888" FontSize="10" TextWrapping="Wrap" MaxHeight="42" />
-                        </Grid>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Column="2">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Border Background="#111111" BorderBrush="#262626" BorderThickness="1" Padding="22">
+                    </DockPanel>
+                </Border>
+                <Grid Margin="28,30,28,24" x:Name="PlayPage" Grid.Column="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.35*" />
+                        <ColumnDefinition Width="46" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <StackPanel>
-                            <TextBlock Text="ACCOUNT" FontSize="10" Foreground="#777777" />
-                            <Grid Margin="0,20,0,20">
+                            <TextBlock Text="MINECRAFT JAVA EDITION" Foreground="#777777" FontSize="10" Margin="0,0,0,18" />
+                            <TextBlock Text="PLUTONIUM" FontSize="40" />
+                            <TextBlock Text="Your client. Your settings. Your game." FontSize="12" Foreground="#999999" Margin="0,12,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Margin="0,34,0,0">
+                            <TextBlock Text="LAUNCH PROFILE" FontSize="10" Foreground="#777777" />
+                            <Grid Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="StandaloneButton" Content="STANDALONE" Click="Standalone_Click" Style="{StaticResource QuietButton}" />
+                                <Button x:Name="FabricButton" Grid.Column="2" Content="FABRIC" Click="Fabric_Click" Style="{StaticResource QuietButton}" />
+                            </Grid>
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" VerticalAlignment="Center" Margin="0,22,0,22">
+                            <TextBlock x:Name="ProfileName" Text="Plutonium Client" FontSize="21" />
+                            <TextBlock x:Name="ProfileDetails" Text="Standalone · Minecraft 1.21.11" Foreground="#888888" FontSize="11" Margin="0,8,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,24,0,0">
+                                <TextBlock Text="1.21.11" FontSize="11" />
+                                <TextBlock Text=" / " Foreground="#444444" Margin="12,0" />
+                                <TextBlock x:Name="JavaVersion" Text="Checking Java" FontSize="11" Foreground="#999999" />
+                                <TextBlock x:Name="StatusBadge" Text="CHECKING" Margin="22,0,0,0" FontSize="10" Foreground="#BBBBBB" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Row="3">
+                            <Button x:Name="PlayButton" Content="PLAY" Style="{StaticResource QuietButton}" Height="58" Background="#252525" Foreground="#FFFFFF" BorderBrush="#444444" FontSize="14" FontWeight="SemiBold" Click="Play_Click" />
+                            <ProgressBar x:Name="Progress" Height="2" Margin="0,10,0,0" Minimum="0" Maximum="100" Background="#222222" Foreground="White" Visibility="Collapsed" />
+                            <Button x:Name="StopGameButton" Content="STOP MINECRAFT" Style="{StaticResource QuietButton}" Margin="0,8,0,0" Visibility="Collapsed" Click="StopGame_Click" />
+                            <Grid Margin="0,16,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition />
                                 </Grid.ColumnDefinitions>
-                                <Border Width="38" Height="38" Background="#222222" Margin="0,0,14,0">
-                                    <TextBlock x:Name="AccountMark" Text="?" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock x:Name="AccountName" Text="Microsoft account" FontSize="14" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock x:Name="AccountState" Text="Not signed in" FontSize="10" Foreground="#888888" Margin="0,6,0,0" />
-                                </StackPanel>
+                                <Ellipse x:Name="ActivityDot" Width="5" Height="5" Fill="#BBBBBB" VerticalAlignment="Top" Margin="0,5,10,0" />
+                                <TextBlock x:Name="ActivityText" Grid.Column="1" Text="Checking your installation" Foreground="#888888" FontSize="10" TextWrapping="Wrap" MaxHeight="42" />
                             </Grid>
-                            <Button x:Name="AccountButton" Content="ACCOUNTS" Style="{StaticResource QuietButton}" Click="Account_Click" />
                         </StackPanel>
-                    </Border>
-                    <StackPanel Grid.Row="1" Margin="0,24,0,18" VerticalAlignment="Center">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="INSTALLATION" FontSize="10" Foreground="#777777" />
-                            <Ellipse x:Name="InstallIndicator" Grid.Column="1" Width="5" Height="5" Fill="#AAAAAA" />
-                        </Grid>
-                        <TextBlock x:Name="MinecraftPath" Text="Locating Minecraft" FontSize="11" Foreground="#BBBBBB" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text,RelativeSource={RelativeSource Self}}" Margin="0,12,0,0" />
-                        <TextBlock x:Name="InstallStatus" Text="Checking files" FontSize="10" Foreground="#777777" TextWrapping="Wrap" MaxHeight="44" Margin="0,8,0,0" />
-                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                            <Button x:Name="RepairButton" Content="REPAIR" Style="{StaticResource QuietButton}" Padding="14,9" Click="Repair_Click" />
-                            <Button x:Name="ModsButton" Content="OPEN MODS" Style="{StaticResource QuietButton}" Padding="14,9" Margin="8,0,0,0" Click="Mods_Click" Visibility="Collapsed" />
-                        </StackPanel>
-                    </StackPanel>
-                    <Border Grid.Row="2" BorderBrush="#262626" BorderThickness="0,1,0,0" Padding="0,20,0,0">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Margin="0,0,12,0">
-                                <TextBlock Text="UPDATES" FontSize="10" Foreground="#777777" />
-                                <TextBlock x:Name="UpdateStatus" Text="Checking releases" FontSize="10" Foreground="#999999" TextWrapping="Wrap" Margin="0,10,0,0" />
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Border Background="{DynamicResource PanelBrush}" BorderBrush="#262626" BorderThickness="1" Padding="22">
+                            <StackPanel>
+                                <TextBlock Text="ACCOUNT" FontSize="10" Foreground="#777777" />
+                                <Grid Margin="0,20,0,20">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="38" Height="38" Background="#222222" Margin="0,0,14,0">
+                                        <Grid>
+                                            <TextBlock x:Name="AccountMark" Text="?" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Image x:Name="AccountHead" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock x:Name="AccountName" Text="Microsoft account" FontSize="14" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock x:Name="AccountState" Text="Not signed in" FontSize="10" Foreground="#888888" Margin="0,6,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                                <Button x:Name="AccountButton" Content="ACCOUNTS" Style="{StaticResource QuietButton}" Click="Account_Click" />
                             </StackPanel>
-                            <Button x:Name="UpdateButton" Grid.Column="1" Content="CHECK" Style="{StaticResource QuietButton}" Click="Updates_Click" VerticalAlignment="Top" Padding="14,9" />
-                        </Grid>
-                    </Border>
-                    <Button x:Name="SettingsButton" Grid.Row="3" Content="LAUNCHER SETTINGS" Style="{StaticResource QuietButton}" Margin="0,20,0,0" Click="Settings_Click" />
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,24,0,18" VerticalAlignment="Center">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="INSTALLATION" FontSize="10" Foreground="#777777" />
+                                <Ellipse x:Name="InstallIndicator" Grid.Column="1" Width="5" Height="5" Fill="#AAAAAA" />
+                            </Grid>
+                            <TextBlock x:Name="MinecraftPath" Text="Locating Minecraft" FontSize="11" Foreground="#BBBBBB" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text,RelativeSource={RelativeSource Self}}" Margin="0,12,0,0" />
+                            <TextBlock x:Name="InstallStatus" Text="Checking files" FontSize="10" Foreground="#777777" TextWrapping="Wrap" MaxHeight="44" Margin="0,8,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button x:Name="RepairButton" Content="REPAIR" Style="{StaticResource QuietButton}" Padding="14,9" Click="Repair_Click" />
+                                <Button x:Name="ModsButton" Content="OPEN MODS" Style="{StaticResource QuietButton}" Padding="14,9" Margin="8,0,0,0" Click="Mods_Click" Visibility="Collapsed" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Border Grid.Row="2" BorderBrush="#262626" BorderThickness="0,1,0,0" Padding="0,20,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0">
+                                    <TextBlock Text="UPDATES" FontSize="10" Foreground="#777777" />
+                                    <TextBlock x:Name="UpdateStatus" Text="Checking releases" FontSize="10" Foreground="#999999" TextWrapping="Wrap" Margin="0,10,0,0" />
+                                </StackPanel>
+                                <Button x:Name="UpdateButton" Grid.Column="1" Content="CHECK" Style="{StaticResource QuietButton}" Click="Updates_Click" VerticalAlignment="Top" Padding="14,9" />
+                            </Grid>
+                        </Border>
+                        <Button x:Name="SettingsButton" Grid.Row="3" Content="LAUNCHER SETTINGS" Style="{StaticResource QuietButton}" Margin="0,20,0,0" Click="Settings_Click" />
+                    </Grid>
                 </Grid>
+                <Border x:Name="AccountsOverlay" Background="Transparent" Visibility="Collapsed" Grid.Column="1">
+                    <Border Width="680" Background="{DynamicResource PanelBrush}" BorderBrush="#333333" BorderThickness="1" CornerRadius="0" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="28,30">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="YOUR ACCOUNTS" Foreground="{StaticResource TextPrimary}" FontFamily="{StaticResource Lato}" FontSize="17" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Content="Close" Style="{StaticResource CloseIconButton}" Click="CloseAccounts_Click" />
+                            </Grid>
+                            <TextBlock Text="Choose who you play as. Sign-in opens in your browser." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}" Margin="0,12,0,16" />
+                            <TextBlock x:Name="AccountEmpty" Text="No saved accounts yet. Add your Microsoft account to get started." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}" Margin="0,0,0,14" />
+                            <ListBox x:Name="AccountList" DisplayMemberPath="Name" MaxHeight="220" MinHeight="65" Background="{DynamicResource CanvasBrush}" Foreground="{StaticResource TextPrimary}" BorderBrush="#333333" FontSize="15" Padding="8" />
+                            <StackPanel x:Name="AccountActions" Orientation="Horizontal" Margin="0,18,0,0">
+                                <Button Content="ADD ACCOUNT" Style="{StaticResource QuietButton}" Click="AddAccount_Click" />
+                                <Button Content="USE SELECTED" Style="{StaticResource QuietButton}" Margin="8,0,0,0" Click="UseAccount_Click" />
+                                <Button Content="SIGN OUT" Style="{StaticResource QuietButton}" Margin="8,0,0,0" Click="RemoveAccount_Click" />
+                            </StackPanel>
+                            <TextBlock Text="Saved sign-ins are encrypted for your Windows user. Signing out removes that account from this launcher." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,16,0,0" />
+                            <TextBlock Text="{Binding Text, ElementName=ActivityText}" Foreground="{StaticResource BlueBrush}" TextWrapping="Wrap" Margin="0,14,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Border>
+                <Border x:Name="UpdatesOverlay" Background="Transparent" Visibility="Collapsed" Grid.Column="1">
+                    <Border Width="680" Background="{DynamicResource PanelBrush}" BorderBrush="#333333" BorderThickness="1" CornerRadius="0" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="28,30">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="INSTALLED &amp; UPDATES" Foreground="{StaticResource TextPrimary}" FontFamily="{StaticResource Lato}" FontSize="17" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Content="Close" Style="{StaticResource CloseIconButton}" Click="CloseUpdates_Click" />
+                            </Grid>
+                            <StackPanel x:Name="UpdateActions">
+                                <TextBlock x:Name="ClientInstalledVersion" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,20,0,8" />
+                                <TextBlock x:Name="ClientUpdateDetail" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
+                                <Button x:Name="InstallClientUpdateButton" Content="INSTALL CLIENT UPDATE" Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Margin="0,12,0,12" Click="InstallClientUpdate_Click" IsEnabled="False" />
+                                <Separator Background="#333333" />
+                                <TextBlock x:Name="LauncherInstalledVersion" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,16,0,8" />
+                                <TextBlock x:Name="LauncherUpdateDetail" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
+                                <Button x:Name="InstallLauncherUpdateButton" Content="UPDATE AND RESTART LAUNCHER" Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Margin="0,12,0,12" Click="InstallLauncherUpdate_Click" IsEnabled="False" />
+                                <TextBlock Text="Update sources can be added in Settings. Downloads are verified before replacing installed files." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,8,0,0" />
+                                <Button Content="CHECK FOR UPDATES" Style="{StaticResource QuietButton}" Click="Updates_Click" Margin="0,14,0,0" />
+                                <CheckBox x:Name="AutoUpdatesInput" Content="Automatically install updates from configured sources" Margin="0,18,0,0" Click="Preferences_Click" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Text, ElementName=ActivityText}" Foreground="{StaticResource BlueBrush}" TextWrapping="Wrap" Margin="0,14,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Border>
+                <Border x:Name="FilesPage" Grid.Column="1" Visibility="Collapsed" Margin="28,30" VerticalAlignment="Top" Background="{DynamicResource PanelBrush}" Padding="28">
+                    <StackPanel>
+                        <TextBlock Text="FILES &amp; SETTINGS" FontSize="22" />
+                        <TextBlock Text="Your game, saves and launcher data, within reach." Foreground="#999999" Margin="0,12,0,24" />
+                        <Button Content="OPEN GAME FOLDER" Tag="game" Click="OpenFolder_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,12" />
+                        <Button Content="OPEN SCREENSHOTS" Tag="screenshots" Click="OpenFolder_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,12" />
+                        <Button Content="OPEN LOGS" Tag="logs" Click="OpenFolder_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,12" />
+                        <Button Content="MEMORY, RESOLUTION &amp; UPDATE SOURCES" Click="Settings_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,12" />
+                        <Button Content="CREATE DESKTOP SHORTCUT" Click="Shortcut_Click" Style="{StaticResource QuietButton}" />
+                        <TextBlock Text="Uninstall Plutonium from Windows Settings → Apps. Your worlds and account data are preserved." Foreground="#999999" TextWrapping="Wrap" Margin="0,24,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border x:Name="ThemePage" Grid.Column="1" Visibility="Collapsed" Margin="28,30" VerticalAlignment="Top" Background="{DynamicResource PanelBrush}" Padding="28">
+                    <StackPanel>
+                        <TextBlock Text="PREFERRED THEME" FontSize="22" />
+                        <TextBlock Text="Simple shades. Clear text. Your preference is saved." Foreground="#999999" Margin="0,12,0,24" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="BLACK" Tag="Black" Click="Theme_Click" Style="{StaticResource QuietButton}" />
+                            <Button Content="GRAPHITE" Tag="Graphite" Click="Theme_Click" Style="{StaticResource QuietButton}" Margin="12,0" />
+                            <Button Content="HIGH CONTRAST" Tag="Contrast" Click="Theme_Click" Style="{StaticResource QuietButton}" />
+                        </StackPanel>
+                        <TextBlock x:Name="ThemeLabel" Margin="0,20,0,20" Foreground="#999999" />
+                        <CheckBox x:Name="ShowHeadInput" Content="Show my Minecraft skin head" Click="Preferences_Click" />
+                        <TextBlock Text="The launcher scales with your Windows display settings for crisp text on high-resolution screens." Foreground="#999999" TextWrapping="Wrap" Margin="0,24,0,0" />
+                    </StackPanel>
+                </Border>
             </Grid>
             <Border Grid.Row="2" BorderBrush="#222222" BorderThickness="0,1,0,0" Padding="28,0">
                 <Grid>
@@ -149,58 +248,9 @@
                     <TextBlock x:Name="VersionsFooter" Grid.Column="1" FontSize="9" Foreground="#666666" VerticalAlignment="Center" />
                 </Grid>
             </Border>
-            <Border x:Name="UpdatesOverlay" Grid.RowSpan="3" Background="#F2090909" Visibility="Collapsed">
-                <Border Width="530" Background="#111111" BorderBrush="#333333" BorderThickness="1" CornerRadius="0" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <StackPanel>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="UPDATES" Foreground="{StaticResource TextPrimary}" FontFamily="{StaticResource Lato}" FontSize="17" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="Close" Style="{StaticResource CloseIconButton}" Click="CloseUpdates_Click" />
-                        </Grid>
-                        <StackPanel x:Name="UpdateActions">
-                            <TextBlock x:Name="ClientInstalledVersion" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,20,0,8" />
-                            <TextBlock x:Name="ClientUpdateDetail" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
-                            <Button x:Name="InstallClientUpdateButton" Content="INSTALL CLIENT UPDATE" Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Margin="0,12,0,12" Click="InstallClientUpdate_Click" IsEnabled="False" />
-                            <Separator Background="#333333" />
-                            <TextBlock x:Name="LauncherInstalledVersion" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,16,0,8" />
-                            <TextBlock x:Name="LauncherUpdateDetail" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
-                            <Button x:Name="InstallLauncherUpdateButton" Content="UPDATE AND RESTART LAUNCHER" Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Margin="0,12,0,12" Click="InstallLauncherUpdate_Click" IsEnabled="False" />
-                            <TextBlock Text="Update sources can be added in Settings. Downloads are verified before replacing installed files." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,8,0,0" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding Text, ElementName=ActivityText}" Foreground="{StaticResource BlueBrush}" TextWrapping="Wrap" Margin="0,14,0,0" />
-                    </StackPanel>
-                </Border>
-            </Border>
-            <Border x:Name="AccountsOverlay" Grid.RowSpan="3" Background="#F2090909" Visibility="Collapsed">
-                <Border Width="530" Background="#111111" BorderBrush="#333333" BorderThickness="1" CornerRadius="0" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <StackPanel>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="YOUR ACCOUNTS" Foreground="{StaticResource TextPrimary}" FontFamily="{StaticResource Lato}" FontSize="17" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="Close" Style="{StaticResource CloseIconButton}" Click="CloseAccounts_Click" />
-                        </Grid>
-                        <TextBlock Text="Choose who you play as. Sign-in opens in your browser." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}" Margin="0,12,0,16" />
-                        <TextBlock x:Name="AccountEmpty" Text="No saved accounts yet. Add your Microsoft account to get started." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}" Margin="0,0,0,14" />
-                        <ListBox x:Name="AccountList" DisplayMemberPath="Name" MaxHeight="220" MinHeight="65" Background="#090909" Foreground="{StaticResource TextPrimary}" BorderBrush="#333333" FontSize="15" Padding="8" />
-                        <StackPanel x:Name="AccountActions" Orientation="Horizontal" Margin="0,18,0,0">
-                            <Button Content="ADD ACCOUNT" Style="{StaticResource QuietButton}" Click="AddAccount_Click" />
-                            <Button Content="USE SELECTED" Style="{StaticResource QuietButton}" Margin="8,0,0,0" Click="UseAccount_Click" />
-                            <Button Content="SIGN OUT" Style="{StaticResource QuietButton}" Margin="8,0,0,0" Click="RemoveAccount_Click" />
-                        </StackPanel>
-                        <TextBlock Text="Saved sign-ins are encrypted for your Windows user. Signing out removes that account from this launcher." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,16,0,0" />
-                        <TextBlock Text="{Binding Text, ElementName=ActivityText}" Foreground="{StaticResource BlueBrush}" TextWrapping="Wrap" Margin="0,14,0,0" />
-                    </StackPanel>
-                </Border>
-            </Border>
             <Button x:Name="CancelOperationButton" Grid.Row="2" Panel.ZIndex="10" Content="CANCEL" Style="{StaticResource QuietButton}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="12,4" Visibility="Collapsed" Click="CancelOperation_Click" />
             <Border x:Name="SettingsOverlay" Grid.RowSpan="3" Background="#F2090909" Visibility="Collapsed">
-                <Border Width="520" Background="#111111" BorderBrush="#333333" BorderThickness="1" CornerRadius="0" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border Width="520" Background="{DynamicResource PanelBrush}" BorderBrush="#333333" BorderThickness="1" CornerRadius="0" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -243,6 +293,21 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
                             <Button Content="CANCEL" Style="{StaticResource QuietButton}" Click="Settings_Click" />
                             <Button Content="SAVE" Margin="8,0,0,0" Style="{StaticResource QuietButton}" Click="SaveSettings_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+            <Border x:Name="ErrorOverlay" Grid.RowSpan="3" Background="#F2090909" Visibility="Collapsed" Panel.ZIndex="20">
+                <Border Background="#141414" BorderBrush="#444444" BorderThickness="1" Padding="28" Width="720" VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="SOMETHING NEEDS ATTENTION" FontSize="20" />
+                        <TextBlock x:Name="ErrorSummary" TextWrapping="Wrap" Foreground="#CCCCCC" Margin="0,14,0,16" />
+                        <TextBox x:Name="ErrorPreview" IsReadOnly="True" Height="230" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Style="{StaticResource DarkTextBox}" />
+                        <TextBlock Text="Review this report before sharing. Send error opens an email draft to justquirk.business@gmail.com; nothing is sent automatically. Longer reports can be copied in full." TextWrapping="Wrap" Foreground="#999999" FontSize="11" Margin="0,16,0,16" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="SEND ERROR" Click="SendError_Click" Style="{StaticResource QuietButton}" />
+                            <Button Content="COPY REPORT" Click="CopyError_Click" Style="{StaticResource QuietButton}" Margin="10,0" />
+                            <Button Content="CLOSE" Click="CloseError_Click" Style="{StaticResource QuietButton}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

@@ -67,8 +67,10 @@ public final class Settings {
         new Module("players", "Player ESP", "RENDER", "Keep other players in sight", false).add(
             slider("distance", "Render distance", 128, 16, 256, 8, " m"), choice("style", "Render style", "Filled", "Outline", "Filled"), color("color", "Color", 0xff93a5ff)),
         new Module("storage", "Storage ESP", "RENDER", "Highlight nearby containers", false).add(
-            bool("chests", "Chests", true), bool("barrels", "Barrels", true), bool("ender", "Ender chests", true), bool("shulker", "Shulker boxes", true),
-            slider("distance", "Render distance", 96, 16, 256, 8, " m"), choice("style", "Render style", "Filled", "Outline", "Filled"), color("color", "Color", 0xffe9bd78)),
+            bool("chests", "Chests", true), bool("barrels", "Barrels", true), bool("shulker", "Shulker boxes", true),
+            slider("distance", "Render distance", 96, 16, 256, 8, " m"), choice("style", "Render style", "Filled", "Outline", "Filled"), color("color", "Color", 0xffe9bd78),
+            bool("hoppers", "Hoppers", false),bool("furnaces", "Furnaces", false),bool("dispensers", "Dispensers / droppers", false),
+            bool("perblock", "Separate block colors", false),color("chestcolor", "Chest color", 0xffe9bd78),color("barrelcolor", "Barrel color", 0xffdba787),color("shulkercolor", "Shulker color", 0xffc294dc),color("hoppercolor", "Hopper color", 0xffa3b2c4),color("furnacecolor", "Furnace color", 0xffdedede),color("dispensercolor", "Dispenser color", 0xff99b6ac)),
         new Module("spawners", "Spawner ESP", "RENDER", "Locate spawners and their mob types", false).add(
             bool("tracer", "Show tracer", true), bool("mob", "Show mob type", true), slider("distance", "Render distance", 96, 16, 256, 8, " m"),
             choice("style", "Render style", "Filled", "Outline", "Filled"), color("color", "Color", 0xffba9cf8)),
@@ -82,6 +84,9 @@ public final class Settings {
         new Module("freecam", "Freecam", "MOVEMENT", "Explore with a detached camera", false).add(
             slider("speed", "Speed", 16, 1, 80, 0.5, " m/s"), slider("vertical", "Vertical speed", 12, 1, 60, 0.5, " m/s")),
         new Module("fastplace", "Fast Place", "MOVEMENT", "Remove the vanilla delay while placing blocks", false),
+        new Module("fly", "Fly", "MOVEMENT", "Flight in singleplayer or when the server grants flight", false).add(slider("speed", "Flight speed", 1, .2, 3, .1, "x")),
+        new Module("elytraglide", "Elytra Glide", "MOVEMENT", "Stabilize pitch during an existing elytra flight", false).add(slider("pitch", "Glide pitch", -5, -30, 15, 1, " deg")),
+        new Module("inventorymove", "Inventory Move", "MOVEMENT", "Use movement keys in your inventory, except while typing", false),
         new Module("autoclutch", "Auto Clutch", "MOVEMENT", "Use a suitable hotbar item to break a dangerous fall", false).add(
             slider("fall", "Fall distance", 3, 1, 8, 0.5, " m")),
         new Module("aimassist", "Aim Assist", "COMBAT", "Smoothly track visible nearby players with motion prediction", false).add(
@@ -97,7 +102,7 @@ public final class Settings {
         new Module("doubleanchor", "Double Anchor", "COMBAT", "Rapidly repeat interactions with the aimed respawn anchor", false),
         new Module("mobs", "Mob ESP", "RENDER", "Separate highlights for hostile and passive mobs", false).add(bool("hostile", "Hostile mobs", true),bool("passive", "Passive mobs", true),slider("distance", "Render distance", 96, 16, 256, 8, " m"),choice("style", "Render style", "Filled", "Outline", "Filled"),color("color", "Color", 0xff91c7a1)),
         new Module("nametags", "Name Tags", "RENDER", "Show entity name tags; switch off to hide them", true),
-        new Module("freelook", "Freelook", "RENDER", "Rotate your view without changing your player's aim", false),
+        new Module("freelook", "Freelook", "RENDER", "Hold Alt for third-person free look; release to restore your view", false),
         new Module("trajectory", "Pearl Trajectory", "RENDER", "Preview a held pearl's path and first impact", false).add(color("color", "Color", 0xffeeeeee)),
         new Module("sprint", "Sprint", "MOVEMENT", "Sprint automatically while moving forward", false),
         new Module("nohitdelay", "No Hit Delay", "COMBAT", "Remove the client miss delay for manual clicks", false),
@@ -110,7 +115,7 @@ public final class Settings {
         new Module("weather", "Weather Notifier", "HUD", "Notify when weather changes, with a cooldown", false).add(slider("cooldown", "Cooldown", 15, 3, 120, 1, " s")),
         new Module("notifications", "Notifications", "HUD", "Centered action notifications with helpful module descriptions", true).add(slider("duration", "Display duration", 4, 2, 10, 1, " s")),
         new Module("discord", "Discord Presence", "ENTERTAINMENT", "Display Plutonium in your desktop Discord activity", false).add(text("application", "Application ID", "1555301670643310712")),
-        new Module("radio", "Radio", "ENTERTAINMENT", "Play an Ogg/Vorbis audio stream through Minecraft", false).add(text("playlist", "Ogg/Vorbis stream URL", ""),slider("volume", "Volume", 50, 0, 100, 1, "%")),
+        new Module("radio", "Radio", "ENTERTAINMENT", "YouTube opens in your browser; direct Ogg streams play in-game", false).add(choice("mode", "Playback", "YouTube", "YouTube", "In-game stream"),text("youtube", "YouTube playlist URL", "https://www.youtube.com/playlist?list=PLP75Cve0zgoY"),text("playlist", "Ogg/Vorbis stream URL", ""),slider("volume", "In-game volume", 50, 0, 100, 1, "%")),
         new Module("coordinates", "Coordinates", "HUD", "Your block position, including correct negative coordinates", true),
         new Module("active", "Active Modules HUD", "HUD", "A compact list of enabled features", true)
     );

@@ -49,6 +49,7 @@ public final class Quirk {
     private static long eatStarted, nextClick;
     private static boolean eatWasUsing, wasFreelook, altHeld;
     private static float lookYaw,lookPitch;
+    private static net.minecraft.client.CameraType previousLookPerspective;
     private static int maceRestore=-1;
     private static final java.util.Map<String,Boolean> enabledStates=new java.util.HashMap<>();
     public static Settings settings() { initialize(); return settings; }
@@ -74,7 +75,7 @@ public final class Quirk {
         System.out.println("[Plutonium] Client initialized: Minecraft 1.21.11 / Java 21");
     }
     public static void tick() {
-        initialize(); syncFreecam(); syncFreelook(); automate(); aimAssist(); extraAutomation(); store.tick(); overlay.tick(); Notifications.tick(); Entertainment.tick();
+        initialize(); syncFreecam(); syncFreelook(); MovementModules.tick(); automate(); aimAssist(); extraAutomation(); store.tick(); overlay.tick(); Notifications.tick(); Entertainment.tick();
     }
     public static java.util.concurrent.CompletableFuture<net.minecraft.client.sounds.AudioStream> radioStream(net.minecraft.resources.Identifier id){
         return id.equals(Entertainment.RADIO_STREAM_PATH)?java.util.concurrent.CompletableFuture.supplyAsync(Entertainment::openRadioAudioStream,net.minecraft.util.Util.nonCriticalIoPool()):null;
@@ -314,6 +315,16 @@ public final class Quirk {
         };
         if(clutchSlot<0||player.getEyePosition().distanceTo(hit.getLocation())>player.blockInteractionRange()) return;
 
+        // Multiplayer uses the player's actual crosshair and ordinary item interaction only.
+        // Do not send the instant down/restore rotation pair that causes server corrections.
+        if(!mc.hasSingleplayerServer()){
+            if(!(mc.hitResult instanceof BlockHitResult aimed)||aimed.getType()!=HitResult.Type.BLOCK||!aimed.getBlockPos().equals(hit.getBlockPos()))return;
+            int saved=inventory.getSelectedSlot();selectSlot(mc,clutchSlot);
+            var action=(choice==ClutchPlanner.Item.WATER_BUCKET||choice==ClutchPlanner.Item.POWDER_SNOW_BUCKET)?mc.gameMode.useItem(player,InteractionHand.MAIN_HAND):mc.gameMode.useItemOn(player,InteractionHand.MAIN_HAND,aimed);
+            if(action.consumesAction()){player.swing(InteractionHand.MAIN_HAND);clutchAttempted=true;Notifications.show("clutch","Auto Clutch used the aimed landing surface",2);}
+            selectSlot(mc,saved);return;
+        }
+
         int previousSlot=inventory.getSelectedSlot();
         float previousYaw=player.getYRot(),previousPitch=player.getXRot();
         Vec3 toward=hit.getLocation().subtract(player.getEyePosition());
@@ -350,7 +361,15 @@ public final class Quirk {
         yaw+=(float)(dx*0.15); pitch=Math.clamp(pitch+(float)(dy*0.15),-90,90); return true;
     }
     public static void camera(Camera camera) {
-        if(wasFreelook&&!freecam()){EngineAccess.rotation(camera,lookYaw,lookPitch);return;}
+        if(wasFreelook&&!freecam()){
+            var mc=Minecraft.getInstance();
+            EngineAccess.rotation(camera,lookYaw,lookPitch);
+            Vec3 origin=mc.player.getEyePosition(mc.getDeltaTracker().getGameTimeDeltaPartialTick(false));
+            Vec3 desired=origin.subtract(new Vec3(camera.forwardVector()).scale(4));
+            var hit=mc.level.clip(new net.minecraft.world.level.ClipContext(origin,desired,net.minecraft.world.level.ClipContext.Block.COLLIDER,net.minecraft.world.level.ClipContext.Fluid.NONE,mc.player));
+            Vec3 destination=hit.getType()==net.minecraft.world.phys.HitResult.Type.MISS?desired:hit.getLocation().add(origin.subtract(desired).normalize().scale(.2));
+            EngineAccess.position(camera,destination.x,destination.y,destination.z);return;
+        }
         if(!freecam() || cameraPosition==null) return;
         Minecraft mc=Minecraft.getInstance(); long now=System.nanoTime(); double dt=Math.min(0.1,(now-lastCameraTime)/1e9); lastCameraTime=now;
         if(mc.screen==null&&mc.isWindowActive()) {
@@ -366,8 +385,9 @@ public final class Quirk {
     private static void syncFreelook(){
         var mc=Minecraft.getInstance();
         if(mc.screen!=null||!mc.isWindowActive()) altHeld=false;
-        boolean enabled=altHeld&&mc.player!=null&&!mc.player.isDeadOrDying()&&mc.screen==null&&mc.isWindowActive();
-        if(enabled&&!wasFreelook){lookYaw=mc.player.getYRot();lookPitch=mc.player.getXRot();}
+        boolean enabled=settings.module("freelook").on()&&altHeld&&!freecam()&&mc.player!=null&&!mc.player.isDeadOrDying()&&mc.screen==null&&mc.isWindowActive();
+        if(enabled&&!wasFreelook){lookYaw=mc.player.getYRot();lookPitch=mc.player.getXRot();previousLookPerspective=mc.options.getCameraType();mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);}
+        if(!enabled&&wasFreelook&&previousLookPerspective!=null){mc.options.setCameraType(previousLookPerspective);previousLookPerspective=null;}
         wasFreelook=enabled;
     }
     public static void renderWorld(Camera camera,org.joml.Matrix4f view,org.joml.Matrix4f projection,DeltaTracker delta){initialize();overlay.world(camera,view,projection,delta);}

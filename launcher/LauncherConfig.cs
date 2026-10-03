@@ -15,10 +15,13 @@ public sealed class LauncherConfig
     public bool Fullscreen { get; set; }
     public string SelectedProfile { get; set; } = "standalone";
     public string SelectedAccountId { get; set; } = string.Empty;
-    public string StandaloneClientVersion { get; set; } = "1.0.0";
-    public string FabricClientVersion { get; set; } = "1.0.0";
-    public string ClientManifestUrl { get; set; } = string.Empty;
-    public string LauncherManifestUrl { get; set; } = string.Empty;
+    public string Theme { get; set; } = "Black";
+    public bool AutomaticUpdates { get; set; } = true;
+    public bool ShowPlayerHead { get; set; } = true;
+    public string StandaloneClientVersion { get; set; } = "1.1.1";
+    public string FabricClientVersion { get; set; } = "1.1.1";
+    public string ClientManifestUrl { get; set; } = "https://github.com/Plutonn0/Plutonium/releases/latest/download/client.json";
+    public string LauncherManifestUrl { get; set; } = "https://github.com/Plutonn0/Plutonium/releases/latest/download/launcher.json";
 
     [JsonIgnore]
     public string? DataRootOverride { get; set; }
@@ -51,6 +54,8 @@ public sealed class LauncherConfig
         }
 
         config.DataRootOverride = dataDirectory;
+        if (string.IsNullOrWhiteSpace(config.ClientManifestUrl)) config.ClientManifestUrl = "https://github.com/Plutonn0/Plutonium/releases/latest/download/client.json";
+        if (string.IsNullOrWhiteSpace(config.LauncherManifestUrl)) config.LauncherManifestUrl = "https://github.com/Plutonn0/Plutonium/releases/latest/download/launcher.json";
         config.Normalize();
         return config;
     }

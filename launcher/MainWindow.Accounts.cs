@@ -20,6 +20,7 @@ public partial class MainWindow
         AccountState.Text = active is null ? "Not signed in" : "Remembered on this PC";
         AccountButton.Content = "ACCOUNTS";
         AccountEmpty.Visibility = saved.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        _ = RefreshHeadAsync(active);
     }
 
     private async void AddAccount_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
@@ -42,7 +43,7 @@ public partial class MainWindow
         await _config.SaveAsync(OperationToken);
         _session = null;
         RefreshAccounts();
-        AccountsOverlay.Visibility = Visibility.Collapsed;
+        Navigate("play");
         SetStage("READY", $"Using {selected.Name}");
     });
 
@@ -60,7 +61,7 @@ public partial class MainWindow
         SetStage("READY", "Account signed out of this launcher");
     });
 
-    private void CloseAccounts_Click(object sender, RoutedEventArgs e) => AccountsOverlay.Visibility = Visibility.Collapsed;
+    private void CloseAccounts_Click(object sender, RoutedEventArgs e) => Navigate("play");
     private void CancelOperation_Click(object sender, RoutedEventArgs e)
     {
         _operation?.Cancel();

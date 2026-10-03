@@ -34,7 +34,7 @@ public final class SmokeTest {
         try {
             if(stage==0&&ticks%100==0)System.out.println("[Plutonium smoke] Waiting at "+(mc.screen==null?"no screen":mc.screen.getClass().getName()));
             if(stage==0 && ticks>60 && mc.screen instanceof TitleScreen) {
-                check(mc.getResourceManager().getResource(net.minecraft.resources.Identifier.fromNamespaceAndPath("plutonium", "textures/font/ui.png")).isPresent(), "Bundled RGBA UI font atlas loads");
+                check(mc.getResourceManager().getResource(net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "font/quirk/ui.ttf")).isPresent(), "Bundled high-resolution UI font loads");
                 mc.options.pauseOnLostFocus=false; mc.options.renderDistance().set(6); mc.options.guiScale().set(2);
                 // Render a real 4K framebuffer even when this desktop caps the OS window size.
                 mc.getWindow().setWidth(3840);mc.getWindow().setHeight(2160);mc.resizeDisplay();
@@ -114,20 +114,20 @@ public final class SmokeTest {
                 if(step==100) { rightClick(380,86); }
                 if(step==130) {
                     screenshot("03-storage-settings.png");
-                    click(650,270);
+                    clickOption("chests",.5,12);
                     check(!Quirk.settings().module("storage").flag("chests"),"Nested toggle changes immediately");
                 }
                 if(step==140) {
-                    mc.screen.mouseScrolled(500,400,0,-5);
+                    mc.screen.mouseScrolled(500,400,0,-1);
                 }
                 if(step==150) {
-                    click(620,302);
+                    clickOption("distance",.8,25);
                     double distance=Quirk.settings().module("storage").number("distance");
                     check(distance>128,"Compact settings slider responds to mouse position (observed "+distance+" m)");
                     initialColor=Quirk.settings().module("storage").color();
-                    mc.screen.mouseScrolled(1000,400,0,-5);
+                    mc.screen.mouseScrolled(1000,400,0,0);
                 }
-                if(step==170) { click(600,392); check(Quirk.settings().module("storage").color()!=initialColor,"RGB color slider changes color"); } if(step==195) { screenshot("04-expanded-colors.png"); }
+                if(step==170) { clickOption("color",.2,33); check(Quirk.settings().module("storage").color()!=initialColor,"RGB color slider changes color"); } if(step==195) { screenshot("04-expanded-colors.png"); }
                 if(step==200) { screenshot("04-expanded-colors.png"); mc.screen.keyPressed(new KeyEvent(GLFW_KEY_ESCAPE,0,0)); check(mc.screen==null,"ESC closes menu"); }
                 if(step==210) { f8(); }
                 if(step==220) { f8(); check(mc.screen==null,"F8 toggles menu closed"); Quirk.settings().module("freecam").enabled.set(true); check(Quirk.freecam(),"Freecam activates"); playerPosition=mc.player.position(); initialCamera=mc.gameRenderer.getMainCamera().position(); Quirk.turn(mc.player,60,-15); mc.setWindowActive(true); mc.options.keyUp.setDown(true); }
@@ -138,12 +138,13 @@ public final class SmokeTest {
                 if(step==290) {
                     mc.screen.onClose();Quirk.settings().module("freecam").enabled.set(false);
                     Quirk.settings().module("xray").enabled.set(false);
-                    Quirk.settings().module("freelook").enabled.set(true);stage=4;step=0;
+                    Quirk.settings().module("freelook").enabled.set(true);mc.setWindowActive(true);mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);Quirk.key(GLFW_PRESS,new KeyEvent(GLFW_KEY_LEFT_ALT,0,0));stage=4;step=0;
                 }
             } else if(stage==4) {
                 step++;mc.setWindowActive(true);
-                if(step==5){float yaw=mc.player.getYRot();Quirk.turn(mc.player,100,30);check(mc.player.getYRot()==yaw,"Freelook rotates only the camera");}
-                if(step==10){Quirk.settings().module("freelook").enabled.set(false);screenshot("07-night-fullbright.png");Quirk.settings().module("fullbright").enabled.set(false);}
+                if(step==5){check(mc.options.getCameraType()==net.minecraft.client.CameraType.THIRD_PERSON_BACK,"Freelook enters third person");float yaw=mc.player.getYRot();Quirk.turn(mc.player,100,30);check(mc.player.getYRot()==yaw,"Freelook rotates only the camera");}
+                if(step==10){Quirk.key(GLFW_RELEASE,new KeyEvent(GLFW_KEY_LEFT_ALT,0,0));Quirk.settings().module("freelook").enabled.set(false);screenshot("07-night-fullbright.png");Quirk.settings().module("fullbright").enabled.set(false);}
+                if(step==12)check(mc.options.getCameraType()==net.minecraft.client.CameraType.FIRST_PERSON,"Freelook restores previous perspective");
                 if(step==25){screenshot("08-night-normal.png");Quirk.settings().module("fullbright").enabled.set(true);
                     Quirk.settings().module("fakepay").enabled.set(true);check(Quirk.interceptCommand("pay TestPlayer 100"),"Fake Pay intercepts payment before sending");check(!Quirk.interceptCommand("say pay"),"Fake Pay preserves unrelated commands");
                     Quirk.settings().module("fakestats").enabled.set(true);Quirk.settings().module("fakestats").get("title").set("LOCAL PREVIEW");
@@ -202,7 +203,14 @@ public final class SmokeTest {
                 }
                 if(step==55)rightClickModule("fakestats");
                 
-                if(step==70){click(500,308);mc.screen.keyPressed(new KeyEvent(GLFW_KEY_A,0,GLFW_MOD_CONTROL));check(Quirk.settings().module("fakestats").get("title").choice().equals("LOCAL PREVIEW"),"Select-all keeps text until replacement");mc.screen.charTyped(new CharacterEvent(81,0));check(Quirk.settings().module("fakestats").get("title").choice().equals("Q"),"Text settings update immediately");} if(step==75){screenshot("12-editable-settings.png");mc.screen.onClose();Quirk.store().flush();Quirk.settings().module("freecam").enabled.set(true);stage=3;
+                if(step==70){clickOption("title",.5,12);mc.screen.keyPressed(new KeyEvent(GLFW_KEY_A,0,GLFW_MOD_CONTROL));check(Quirk.settings().module("fakestats").get("title").choice().equals("LOCAL PREVIEW"),"Select-all keeps text until replacement");mc.screen.charTyped(new CharacterEvent(81,0));check(Quirk.settings().module("fakestats").get("title").choice().equals("Q"),"Text settings update immediately");} if(step==75){screenshot("12-editable-settings.png");mc.screen.onClose();Quirk.store().flush();Quirk.settings().module("fly").enabled.set(true);stage=6;step=0;}
+            } else if(stage==6){
+                step++;mc.setWindowActive(true);
+                if(step==10){check(mc.player.getAbilities().flying,"Fly enables flight in an integrated world");Quirk.settings().module("fly").enabled.set(false);}
+                if(step==20){check(!mc.player.getAbilities().flying&&!mc.player.getAbilities().mayfly,"Fly restores survival abilities when disabled");
+                    mc.getConnection().sendCommand("item replace entity @s armor.chest with elytra");mc.getConnection().sendCommand("tp @s 0 40 0");}
+                if(step==35){var server=mc.getSingleplayerServer();server.execute(()->server.getPlayerList().getPlayer(mc.player.getUUID()).startFallFlying());mc.player.startFallFlying();mc.player.setXRot(20);Quirk.settings().module("elytraglide").enabled.set(true);}
+                if(step==45){check(mc.player.isFallFlying()&&mc.player.getXRot()<15,"Elytra Glide stabilizes pitch during flight");Quirk.settings().module("elytraglide").enabled.set(false);Quirk.settings().module("freecam").enabled.set(true);stage=3;
                     mc.schedule(()->{mc.level.disconnect(net.minecraft.network.chat.Component.literal("Smoke test complete"));mc.disconnectWithSavingScreen();});}
             } else if(stage==3 && mc.level==null) {
                 check(!Quirk.freecam()&&!Quirk.settings().module("freecam").on(),"Disconnect disarms freecam"); finish(true,"All in-game smoke assertions passed.");
@@ -215,6 +223,11 @@ public final class SmokeTest {
         var screen=Minecraft.getInstance().screen;Field field=screen.getClass().getDeclaredField("moduleRows");field.setAccessible(true);
         @SuppressWarnings("unchecked") var rows=(java.util.Map<Settings.Module,int[]>)field.get(screen);
         int[] row=rows.get(Quirk.settings().module(id));check(row!=null,"Module is visible before right click: "+id);rightClick(row[0]+row[2]/2.0,row[1]+row[3]/2.0);
+    }
+    private static void clickOption(String id,double fraction,int offsetY) throws Exception {
+        var screen=Minecraft.getInstance().screen;Field field=screen.getClass().getDeclaredField("optionRows");field.setAccessible(true);
+        @SuppressWarnings("unchecked") var rows=(java.util.Map<String,int[]>)field.get(screen);
+        int[] row=rows.get(id);check(row!=null,"Setting is visible before click: "+id);click(row[0]+row[2]*fraction,row[1]+offsetY);
     }
     private static double field(Object o,String name) throws Exception { Field f=o.getClass().getDeclaredField(name); f.setAccessible(true); return ((Number)f.get(o)).doubleValue(); }
     private static void click(double x,double y) throws Exception {

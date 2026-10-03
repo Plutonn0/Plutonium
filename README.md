@@ -4,13 +4,13 @@ A Minecraft **Java 1.21.11** client targeting **Java 21**. Plutonium provides it
 
 ## Play
 
-Build and run `dist\Plutonium Client.exe`. On first launch it detects `.minecraft` and Java 21, verifies or repairs its bundled Plutonium files, and provisions a verified Java 21 runtime if needed. Sign-in opens the supported Microsoft flow in your browser; the launcher never asks for your password. Minecraft libraries and assets are obtained from Mojang when required and are not bundled in the executable.
+Build and run `dist\Plutonium Client.exe`. It installs as a per-user Windows app with a Start menu shortcut and Windows Apps entry. On first launch it detects `.minecraft` and Java 21, verifies or repairs its bundled Plutonium files, and provisions a verified Java 21 runtime if needed. Sign-in opens the supported Microsoft flow in your browser; the launcher never asks for your password. Minecraft libraries and assets are obtained from Mojang when required and are not bundled in the executable.
 
-Choose **STANDALONE** or **FABRIC**, then press **PLAY**. Fabric uses `%APPDATA%\.minecraft\mods`; the standalone profile reuses an existing legacy Quirk game directory when found. The launcher does not rewrite Minecraft launcher profiles or remove worlds, settings, or unrelated mods. Release manifests can be configured in Settings; no production update endpoint is built in.
+Choose **STANDALONE** or **FABRIC**, then press **PLAY**. Fabric uses `%APPDATA%\.minecraft\mods`; the standalone profile reuses an existing legacy Quirk game directory when found. The launcher does not rewrite Minecraft launcher profiles or remove worlds, settings, or unrelated mods. Verified client and launcher updates use the latest GitHub release by default; update sources remain configurable in Settings.
 
-Launcher 1.0.1 adds an **Accounts** panel: add Microsoft accounts, choose which one to use, or sign out of an account locally. Saved sign-ins are encrypted for the current Windows user. Each Play refreshes the selected Minecraft session before starting the game. The Cancel button stops cancellable sign-in, setup, and download operations.
+Launcher 1.1 adds Play, Account, Installed, Files and Preferred theme pages, a dark Play button, a player-skin avatar and the Plutonium app icon. The **Account** page lets you add Microsoft accounts, choose which one to use, or sign out of an account locally. Saved sign-ins are encrypted for the current Windows user. Each Play refreshes the selected Minecraft session before starting the game. The Cancel button stops cancellable sign-in, setup, and download operations.
 
-The **Updates** panel shows separate client and launcher versions and installation buttons. Checking for updates does not install them. An unavailable feed no longer prevents playing the installed client. Launcher updates require **Update and restart launcher**, verify the download, replace the executable after it closes, and keep a `.previous` backup beside it. Repair restores missing standalone metadata without downgrading a newer client jar. Profile changes, repair, and updates are disabled while the launched game is running.
+The **Installed** page shows separate client and launcher versions. Manual checks only check; with automatic updates enabled, startup and Play checks also install verified client updates and restart for newer launchers. An unavailable feed shows its actual error and still permits playing the installed client. Launcher replacement keeps a `.previous` backup beside the executable. Repair restores missing standalone metadata without downgrading a newer client jar. Profile changes, repair, and updates are disabled while the launched game is running.
 
 Client release manifests are HTTPS JSON with `version`, `standalone`, and `fabric` fields; each asset has an HTTPS `url` and a 64-character SHA-256 hex digest. Launcher manifests use `version` and an `executable` asset with the same fields. A client manifest example is:
 
@@ -31,6 +31,8 @@ Client release manifests are HTTPS JSON with `version`, `standalone`, and `fabri
 
 Opening the menu releases gameplay keys, captures mouse input, and closes any prior container through its normal close path. Settings are saved to `quirk/settings.json` inside the profile's game directory.
 
+See [launcher release and error reporting](docs/launcher-release.md) for hosting updates and sending opt-in email reports.
+
 ## Modules
 
 | Category | Modules |
@@ -48,7 +50,7 @@ Fullbright writes a white lightmap while enabled and leaves the normal update ac
 
 SusChunk marks the surface perimeter of active chunks with red blocks. Activity means repeated movement of remote players observed in this session; this does not claim to detect old bases or historical/unobserved activity. Name Tags is on by default; disabling hides entity labels. Pearl Trajectory previews the held pearl's flight, block/entity collisions, and first impact; random launch spread and future entity movement can alter the actual throw.
 
-Freecam uses the current movement bindings (normally WASD / Space / Shift), holds player input still, and disarms after disconnect/death. The player remains subject to world simulation. Freelook changes the camera direction without changing player aim. Sprint engages when forward movement and normal hunger/movement conditions allow it.
+Freecam uses the current movement bindings (normally WASD / Space / Shift), holds player input still, and disarms after disconnect/death. The player remains subject to world simulation. With Freelook enabled, hold Alt to enter third person and rotate the camera without changing player aim; releasing Alt restores the previous perspective. Sprint engages when forward movement and normal hunger/movement conditions allow it.
 
 Aim Assist uses line-of-sight, range, cone, motion prediction, and a stronger adjustable turn limit. Each correction is proportional and bounded so it approaches the target without snapping. Automace can select a hotbar mace for a target in reach; its default falling-only option requires an actual fall. It uses ordinary attacks and does not manufacture height or bypass server reach checks. No Hit Delay removes the client miss timer; server damage cooldowns still apply. Autoclicker repeats attacks at the configured CPS, requires held left mouse by default, and leaves continuous block mining alone.
 
@@ -60,7 +62,7 @@ Fake Pay intercepts `/pay` (including namespaced variants) before sending and di
 
 Discord Presence connects to the desktop Discord IPC service using application ID **1555301670643310712**. The ID can be edited in the menu. Only the client name and a generic menu/in-game activity are sent, not server addresses or account credentials. Enable activity sharing in Discord if needed. Connection status appears in the module's settings. Connection work stays off the render thread, retries after disconnects, and clears activity when disabled.
 
-Radio plays a direct HTTP(S) Ogg/Vorbis stream through Minecraft's sound system. Play, Stop, Reconnect and live volume are available in its settings. YouTube playlist pages are not direct audio streams and cannot be played by this native player. The supplied playlist has not been converted into an audio catalog; an audio stream URL is still needed. No songs are bundled.
+Radio offers YouTube/browser playback and direct HTTP(S) Ogg/Vorbis streaming in Minecraft. Use Enabled to start/stop the native stream, and toggle it off/on to reconnect. In-game volume applies to native streams; YouTube uses browser controls. No songs are bundled.
 
 
 Discord integration follows the [official IPC protocol](https://docs.discord.com/developers/topics/rpc).
@@ -81,7 +83,7 @@ All Plutonium classes compile with `--release 21`. The wrapper pins Gradle 9.5.1
 Outputs:
 
 - `build/client/plutonium-1.21.11.jar`: complete locally assembled client, used by the installer.
-- `fabric/build/libs/plutonium-client-fabric-1.0.0.jar`: Plutonium as a Fabric client mod, installed automatically in `%APPDATA%\.minecraft\mods`.
+- `fabric/build/libs/plutonium-client-fabric-1.1.1.jar`: Plutonium as a Fabric client mod, installed automatically in `%APPDATA%\.minecraft\mods`.
 - `build/libs/plutonium-client-1.0.0.jar`: Plutonium's compiled implementation only; not a drop-in mod.
 - `build/reports/tests/test/index.html`: automated test results.
 
@@ -100,3 +102,11 @@ An opt-in game smoke test creates a separate flat world in `run/smoke`, requests
 Its result is written to `run/smoke/smoke-result.txt`. Screenshots are in `run/smoke/screenshots`. Never point this harness at a normal game directory.
 
 Existing internal module IDs and the `quirk/settings.json` location are retained so the Plutonium rename preserves saved settings. The installer updates the existing profile names and keeps their game directory.
+
+## Release 1.1.1
+
+The launcher waits for a Minecraft window before showing Playing, monitors exits, and offers Stop Minecraft for stalled starts. The account head uses sharp nearest-pixel scaling and the title bar labels are aligned.
+
+Storage ESP excludes Ender Chests and has container filters plus optional per-block colors. Right-click any module for settings. Fly supports singleplayer and server-granted flight; Elytra Glide stabilizes pitch during existing elytra flight. Inventory Move works in the player inventory and suspends movement while typing. Multiplayer Auto Clutch only uses the landing surface under the real crosshair, without forced rotation packets; server rules can still reject automation.
+
+Radio has two explicit modes: YouTube opens the supplied playlist in the browser, where playback is controlled; In-game stream accepts direct Ogg/Vorbis URLs and has an in-game volume slider. A YouTube page is not a direct audio stream.

@@ -54,12 +54,12 @@ public final class Notifications {
             int cardX=x+(int)((1-opacity)*12);
             y-=height;
             int alpha=(int)(opacity*232);
-            Paint.rounded(g,cardX,y,width,height,5,(alpha<<24)|0x101216);
-            g.fill(cardX,y+4,cardX+2,y+height-4,((int)(opacity*255)<<24)|0x9cb8ff);
+            g.fill(cardX,y,cardX+width,y+height,(alpha<<24)|0x111111);
+            g.fill(cardX,y,cardX+1,y+height,((int)(opacity*255)<<24)|0xcccccc);
             int titleY=y+(n.description.isEmpty()?1:0);
-            Paint.text(g,title,cardX+(width-Paint.width(title))/2,titleY,((int)(opacity*255)<<24)|0xf3f4f7);
+            Paint.text(g,title,cardX+8,titleY,((int)(opacity*255)<<24)|0xeeeeee);
             if(!description.isEmpty())
-                Paint.text(g,description,cardX+(width-Paint.width(description))/2,y+11,((int)(opacity*210)<<24)|0xb9beca);
+                Paint.text(g,description,cardX+8,y+11,((int)(opacity*210)<<24)|0xaaaaaa);
             y-=5;
         }
     }

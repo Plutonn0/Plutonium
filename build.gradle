@@ -1,7 +1,7 @@
 plugins { id 'java' }
 
 group = 'com.quirk'
-version = '1.0.0'
+version = '1.1.1'
 repositories { mavenCentral(); maven { url = 'https://maven.fabricmc.net/' } }
 java { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
 tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
@@ -47,7 +47,7 @@ tasks.register('launcherExe', Exec) {
     dependsOn 'clientJar', ':fabric:remapJar'
     commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts/build-launcher.ps1'
     inputs.dir 'launcher'
-    inputs.files('build/client/plutonium-1.21.11.jar', 'fabric/build/libs/plutonium-client-fabric-1.0.0.jar', 'build/game/version.json')
+    inputs.files('build/client/plutonium-1.21.11.jar', 'fabric/build/libs/plutonium-client-fabric-1.1.1.jar', 'build/game/version.json')
     outputs.file('dist/Plutonium Client.exe')
 }
 tasks.register('testLauncher', Exec) {
@@ -55,7 +55,7 @@ tasks.register('testLauncher', Exec) {
     commandLine 'dotnet', 'test', 'launcher.tests/PlutoniumLauncher.Tests.csproj', '--configuration', 'Release'
     inputs.dir 'launcher'
     inputs.dir 'launcher.tests'
-    inputs.files('build/client/plutonium-1.21.11.jar', 'fabric/build/libs/plutonium-client-fabric-1.0.0.jar', 'build/game/version.json')
+    inputs.files('build/client/plutonium-1.21.11.jar', 'fabric/build/libs/plutonium-client-fabric-1.1.1.jar', 'build/game/version.json')
 }
 launcherExe.configure { mustRunAfter testLauncher }
 check.dependsOn 'testLauncher'

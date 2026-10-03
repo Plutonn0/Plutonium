@@ -61,13 +61,18 @@ public final class Overlay {
             debris.put(((long)x<<32)|(z&0xffffffffL),found);
         }
     }
-    private boolean isStorage(BlockEntity be,Settings.Module m){return be instanceof ChestBlockEntity&&m.flag("chests")||be instanceof BarrelBlockEntity&&m.flag("barrels")||be instanceof EnderChestBlockEntity&&m.flag("ender")||be instanceof ShulkerBoxBlockEntity&&m.flag("shulker");}
+    private boolean isStorage(BlockEntity be,Settings.Module m){return be instanceof ChestBlockEntity&&m.flag("chests")||be instanceof BarrelBlockEntity&&m.flag("barrels")||be instanceof ShulkerBoxBlockEntity&&m.flag("shulker")||be instanceof HopperBlockEntity&&m.flag("hoppers")||be instanceof AbstractFurnaceBlockEntity&&m.flag("furnaces")||be instanceof DispenserBlockEntity&&m.flag("dispensers");}
+    private int storageColor(BlockEntity be,Settings.Module m){
+        if(!m.flag("perblock"))return m.color();
+        String id=be instanceof ChestBlockEntity?"chestcolor":be instanceof BarrelBlockEntity?"barrelcolor":be instanceof ShulkerBoxBlockEntity?"shulkercolor":be instanceof HopperBlockEntity?"hoppercolor":be instanceof AbstractFurnaceBlockEntity?"furnacecolor":"dispensercolor";
+        return m.get(id).color();
+    }
     public void world(Camera camera,Matrix4f view,Matrix4f projection,DeltaTracker delta){
         Minecraft mc=Minecraft.getInstance();if(mc.level==null||mc.player==null)return;
         eye=camera.position();viewProjection=new Matrix4f(projection).mul(view);labels.clear();
         WorldDraw draw=new WorldDraw(eye,view,projection);Settings s=Quirk.settings();float partial=delta.getGameTimeDeltaPartialTick(false);
         var pl=s.module("players");var st=s.module("storage");var sp=s.module("spawners");var tr=s.module("tracers");var mobs=s.module("mobs");
-        Vec3 start=eye.add(new Vec3(camera.forwardVector()).scale(.3));
+        Vec3 start=eye.add(new Vec3(Geometry.tracerOrigin(viewProjection)));
         for(var entity:mc.level.entitiesForRendering()){
             boolean player=entity instanceof net.minecraft.world.entity.player.Player;if(entity==mc.player||!entity.isAlive())continue;
             Settings.Module m=player?pl:mobs;
@@ -81,7 +86,7 @@ public final class Overlay {
             boolean spawn=be instanceof SpawnerBlockEntity;Settings.Module m=spawn?sp:st;if(!spawn&&!isStorage(be,st))continue;
             Vec3 center=Vec3.atCenterOf(pos);double distance=center.distanceTo(eye);
             if(m.on()&&distance<=m.number("distance")){
-                draw.box(blockBounds(be.getBlockState().getShape(mc.level,pos),pos),m.color(),m.get("style").choice().equals("Filled"));
+                draw.box(blockBounds(be.getBlockState().getShape(mc.level,pos),pos),spawn?m.color():storageColor(be,m),m.get("style").choice().equals("Filled"));
                 if(spawn&&sp.flag("mob")){var entity=((SpawnerBlockEntity)be).getSpawner().getOrCreateDisplayEntity(mc.level,pos);labels.add(new Label(center.add(0,.9,0),entity==null?"Spawner":entity.getType().getDescription().getString(),sp.color()));}
             }
             if(tr.on()&&tr.flag(spawn?"spawners":"storage")&&distance<=tr.number("distance"))draw.line(start,center,tr.color(),tr.number("thickness"));
@@ -112,9 +117,9 @@ public final class Overlay {
         if(viewProjection!=null&&eye!=null)for(Label label:labels){Vec3 r=label.position.subtract(eye);Vector4f p=new Vector4f((float)r.x,(float)r.y,(float)r.z,1).mul(viewProjection);if(p.w<=0||Math.abs(p.x)>p.w||Math.abs(p.y)>p.w)continue;int x=(int)((p.x/p.w+1)*w*.5),y=(int)((1-p.y/p.w)*h*.5),tw=width(label.text);g.fill(x-tw/2-4,y-3,x+tw/2+4,y+12,0xb0000000);text(g,label.text,x-tw/2,y,label.color);}
         if(s.module("coordinates").on()){
             BlockPos p=mc.player.blockPosition();String[] lines={"X: "+p.getX(),"Y: "+p.getY(),"Z: "+p.getZ()};int bw=Arrays.stream(lines).mapToInt(Paint::width).max().orElse(45)+12;
-            g.pose().pushMatrix();g.pose().translate(7,7);g.pose().scale(.8f,.8f);g.fill(0,0,bw,47,0xad000000);for(int i=0;i<3;i++)text(g,lines[i],bw/2-width(lines[i])/2,5+13*i,TEXT);g.pose().popMatrix();
+            g.pose().pushMatrix();g.pose().translate(8,8);g.fill(0,0,bw+8,51,0xd9111111);g.fill(0,0,1,51,0xffcccccc);for(int i=0;i<3;i++)text(g,lines[i],10,5+14*i,TEXT);g.pose().popMatrix();
         }
-        if(s.module("active").on()){int y=9;for(var m:s.modules)if(m.on()&&!m.category.equals("HUD")&&!m.id.equals("nametags")){int tw=width(m.name);g.fill(w-tw-19,y-2,w-7,y+13,0x99000000);text(g,m.name,w-tw-13,y,TEXT);y+=17;}}
+        if(s.module("active").on()){int y=8;var enabled=s.modules.stream().filter(m->m.on()&&!m.category.equals("HUD")&&!m.id.equals("nametags")).sorted(java.util.Comparator.comparingInt((Settings.Module m)->width(m.name)).reversed()).toList();for(var m:enabled){int tw=width(m.name);g.fill(w-tw-26,y,w-8,y+18,0xd9111111);g.fill(w-9,y,w-8,y+18,0xffcccccc);text(g,m.name,w-tw-18,y+2,TEXT);y+=19;}}
         if(s.module("fakestats").on()){
             var m=s.module("fakestats");List<String> rows=new ArrayList<>();rows.add(m.get("title").choice());rows.addAll(Arrays.stream(m.get("lines").choice().split("\\|",-1)).limit(15).toList());int bw=Math.min(w/2,rows.stream().mapToInt(Paint::width).max().orElse(100)+16),y=h/2-rows.size()*8;
             g.fill(w-bw-7,y-6,w-7,y+rows.size()*16+4,0xbf000000);g.enableScissor(w-bw-7,y-6,w-7,y+rows.size()*16+4);for(String row:rows){text(g,row,w-bw/2-7-width(row)/2,y,TEXT);y+=16;}g.disableScissor();

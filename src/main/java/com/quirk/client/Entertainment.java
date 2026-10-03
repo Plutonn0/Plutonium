@@ -38,6 +38,7 @@ public final class Entertainment {
     private static RadioSound radioSound;
     private static volatile String connectedStream="",failedStream="";
     private static long radioConnectSince;
+    private static String openedPlaylist="";
 
     private static WeighedSoundEvents createRadioEvent(){
         WeighedSoundEvents event=new WeighedSoundEvents(RADIO_SOUND_ID,"subtitles.quirk.radio");event.addSound(RADIO_SOUND);return event;
@@ -61,8 +62,19 @@ public final class Entertainment {
         Minecraft mc=Minecraft.getInstance();
         if(!radioEnabled){
             if(radioSound!=null)mc.getSoundManager().stop(radioSound);
-            radioSound=null;connectedStream="";failedStream="";radioStatus="Radio stopped";return;
+            radioSound=null;connectedStream="";failedStream="";openedPlaylist="";radioStatus="In-game radio stopped; browser playback is controlled in the browser";return;
         }
+        var module=Quirk.settings().module("radio");
+        if(module.get("mode").choice().equals("YouTube")){
+            if(radioSound!=null){mc.getSoundManager().stop(radioSound);radioSound=null;connectedStream="";}
+            String playlist=module.get("youtube").choice().trim();
+            if(!openedPlaylist.equals(playlist)){
+                try{URI uri=youtubeUri(playlist);net.minecraft.util.Util.getPlatform().openUri(uri);openedPlaylist=playlist;radioStatus="YouTube opened in your browser";Notifications.show("radio",radioStatus,"Use the browser's player for play, pause and volume.",3);}
+                catch(IllegalArgumentException ex){openedPlaylist=playlist;radioStatus=ex.getMessage();Notifications.show("radio-error","Radio could not start",radioStatus,5);}
+            }
+            return;
+        }
+        openedPlaylist="";
         if(radioSound!=null&&!connectedStream.equals(streamUrl)){
             mc.getSoundManager().stop(radioSound);radioSound=null;connectedStream="";failedStream="";
         }
@@ -73,7 +85,7 @@ public final class Entertainment {
             }
             return;
         }
-        if(streamUrl.isBlank()){radioStatus="Enter a direct Ogg/Vorbis stream URL";return;}
+        if(streamUrl.isBlank()){radioStatus="Enter a direct Ogg/Vorbis stream URL";Notifications.show("radio-source","Radio needs a stream URL",radioStatus,30);return;}
         if(failedStream.equals(streamUrl))return;
         try{
             URI uri=radioStreamUri(streamUrl);String host=uri.getHost().toLowerCase(Locale.ROOT);
@@ -95,6 +107,12 @@ public final class Entertainment {
             if(e.getMessage()!=null&&e.getMessage().startsWith("Use an HTTP"))throw e;
             throw new IllegalArgumentException("Enter a valid HTTP(S) Ogg/Vorbis stream URL",e);
         }
+    }
+
+    static URI youtubeUri(String value){
+        URI uri=radioStreamUri(value);String host=uri.getHost().toLowerCase(Locale.ROOT);
+        if(!uri.getScheme().equalsIgnoreCase("https")||!(host.equals("youtube.com")||host.equals("www.youtube.com")||host.equals("music.youtube.com")||host.equals("youtu.be")))throw new IllegalArgumentException("Enter an HTTPS YouTube video or playlist URL");
+        return uri;
     }
 
     public static AudioStream openRadioAudioStream(){
