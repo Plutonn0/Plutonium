@@ -21,8 +21,8 @@ public sealed class LauncherConfig
     public List<ServerFavorite> Servers { get; set; } = [];
     public string FabricRollbackHash { get; set; } = "";
     public string StandaloneRollbackHash { get; set; } = "";
-    public string StandaloneClientVersion { get; set; } = "1.2.0";
-    public string FabricClientVersion { get; set; } = "1.2.0";
+    public string StandaloneClientVersion { get; set; } = "1.3.1";
+    public string FabricClientVersion { get; set; } = "1.3.1";
     public string ClientManifestUrl { get; set; } = "https://github.com/Plutonn0/Plutonium/releases/latest/download/client.json";
     public string LauncherManifestUrl { get; set; } = "https://github.com/Plutonn0/Plutonium/releases/latest/download/launcher.json";
 

@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$PublicBaseUrl,
-    [string]$ClientVersion = '1.2.0',
-    [string]$LauncherVersion = '1.2.0'
+    [string]$ClientVersion = '1.3.1',
+    [string]$LauncherVersion = '1.3.1'
 )
 $ErrorActionPreference = 'Stop'
 $uri = [Uri]$PublicBaseUrl
@@ -18,7 +18,7 @@ function Add-Asset([string]$source, [string]$name) {
     return @{ url = "$base/$([Uri]::EscapeDataString($name))"; sha256 = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 $standalone = Add-Asset 'build/client/plutonium-1.21.11.jar' "plutonium-client-$ClientVersion.jar"
-$fabric = Add-Asset 'fabric/build/libs/plutonium-client-fabric-1.2.0.jar' "plutonium-fabric-$ClientVersion.jar"
+$fabric = Add-Asset 'fabric/build/libs/plutonium-client-fabric-1.3.1.jar' "plutonium-fabric-$ClientVersion.jar"
 $exe = Add-Asset 'dist/Plutonium Client.exe' "Plutonium.Client.exe"
 $client = @{version=$ClientVersion;standalone=$standalone;fabric=$fabric} | ConvertTo-Json -Depth 4
 $launcher = @{version=$LauncherVersion;executable=$exe} | ConvertTo-Json -Depth 4

@@ -114,11 +114,11 @@ public final class Settings {
         new Module("netherite", "Netherite Finder", "MISC", "Highlight ancient debris in loaded chunks", false).add(slider("distance", "Render distance", 64, 16, 128, 8, " m"),choice("style", "Render style", "Filled", "Outline", "Filled"),color("color", "Color", 0xffd69b85)),
         new Module("fakestats", "Fake Stats", "MISC", "Editable local sidebar; server statistics stay unchanged", false).add(text("title", "Sidebar title", "PLUTONIUM"),text("lines", "Rows (separate with |)", "Kills: 100|Deaths: 0|Balance: $1,000,000")),
         new Module("weather", "Weather Notifier", "HUD", "Notify when weather changes, with a cooldown", false).add(slider("cooldown", "Cooldown", 15, 3, 120, 1, " s")),
-        new Module("notifications", "Notifications", "HUD", "Centered action notifications with helpful module descriptions", true).add(slider("duration", "Display duration", 4, 2, 10, 1, " s")),
+        new Module("notifications", "Notifications", "HUD", "Compact bottom-left notifications with helpful descriptions", true).add(slider("duration", "Display duration", 4, 2, 10, 1, " s"),slider("scale", "Size", 60, 45, 100, 5, "%")),
         new Module("discord", "Discord Presence", "ENTERTAINMENT", "Display Plutonium in your desktop Discord activity", false).add(text("application", "Application ID", "1555301670643310712")),
         new Module("radio", "Radio", "ENTERTAINMENT", "YouTube opens in your browser; direct Ogg streams play in-game", false).add(choice("mode", "Playback", "YouTube", "YouTube", "In-game stream"),text("youtube", "YouTube playlist URL", "https://www.youtube.com/playlist?list=PLP75Cve0zgoY"),text("playlist", "Ogg/Vorbis stream URL", ""),slider("volume", "In-game volume", 50, 0, 100, 1, "%")),
         new Module("coordinates", "Coordinates", "HUD", "Your block position, including correct negative coordinates", true),
-        new Module("active", "Active Modules HUD", "HUD", "A compact list of enabled features", true)
+        new Module("active", "Active Modules HUD", "HUD", "A compact list of enabled features", true).add(slider("scale", "Size", 65, 45, 100, 5, "%"),slider("rows", "Maximum visible modules", 10, 3, 20, 1, ""))
     );
     public Module module(String id) { return modules.stream().filter(m -> m.id.equals(id)).findFirst().orElseThrow(); }
     public void onChange(Consumer<Module> callback) { for (Module m : modules) for (Option o : m.options) o.changed = () -> callback.accept(m); }

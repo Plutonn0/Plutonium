@@ -119,7 +119,21 @@ public final class Overlay {
             BlockPos p=mc.player.blockPosition();String[] lines={"X: "+p.getX(),"Y: "+p.getY(),"Z: "+p.getZ()};int bw=Arrays.stream(lines).mapToInt(Paint::width).max().orElse(45)+12;
             g.pose().pushMatrix();g.pose().translate(8,8);g.fill(0,0,bw+8,51,0xd9111111);g.fill(0,0,1,51,0xffcccccc);for(int i=0;i<3;i++)text(g,lines[i],10,5+14*i,TEXT);g.pose().popMatrix();
         }
-        if(s.module("active").on()){int y=8;var enabled=s.modules.stream().filter(m->m.on()&&!m.category.equals("HUD")&&!m.id.equals("nametags")).sorted(java.util.Comparator.comparingInt((Settings.Module m)->width(m.name)).reversed()).toList();for(var m:enabled){int tw=width(m.name);g.fill(w-tw-26,y,w-8,y+18,0xd9111111);g.fill(w-9,y,w-8,y+18,0xffcccccc);text(g,m.name,w-tw-18,y+2,TEXT);y+=19;}}
+        if(s.module("active").on()){
+            var module=s.module("active");float scale=(float)(module.number("scale")/100);
+            var enabled=s.modules.stream().filter(m->m.on()&&!m.category.equals("HUD")&&!m.id.equals("nametags")).sorted(java.util.Comparator.comparingInt((Settings.Module m)->width(m.name)).reversed()).toList();
+            int slots=Math.max(2,(int)((h-12)*.33/(16*scale)));
+            int visible=Math.min(enabled.size(),Math.min((int)module.number("rows"),slots));
+            if(visible<enabled.size())visible=Math.min(visible,slots-1);
+            g.pose().pushMatrix();g.pose().translate(w-6,6);g.pose().scale(scale,scale);
+            int y=0;
+            for(int i=0;i<visible+(visible<enabled.size()?1:0);i++){
+                String name=i<visible?enabled.get(i).name:"+ "+(enabled.size()-visible)+" more";
+                int tw=width(name);g.fill(-tw-12,y,0,y+15,0xd9111111);g.fill(-1,y,0,y+15,0xffcccccc);
+                text(g,name,-tw-7,y-1,TEXT);y+=16;
+            }
+            g.pose().popMatrix();
+        }
         if(s.module("fakestats").on()){
             var m=s.module("fakestats");List<String> rows=new ArrayList<>();rows.add(m.get("title").choice());rows.addAll(Arrays.stream(m.get("lines").choice().split("\\|",-1)).limit(15).toList());int bw=Math.min(w/2,rows.stream().mapToInt(Paint::width).max().orElse(100)+16),y=h/2-rows.size()*8;
             g.fill(w-bw-7,y-6,w-7,y+rows.size()*16+4,0xbf000000);g.enableScissor(w-bw-7,y-6,w-7,y+rows.size()*16+4);for(String row:rows){text(g,row,w-bw/2-7-width(row)/2,y,TEXT);y+=16;}g.disableScissor();
