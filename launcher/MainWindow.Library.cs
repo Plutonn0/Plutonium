@@ -28,6 +28,27 @@ public partial class MainWindow
     private int _modOffset;
     private bool _installedMods;
     private string? _serverToJoin;
+    private CrashAnalysis? _lastCrash;
+
+    private async Task DiagnoseCrashAsync(DateTime since, int exitCode)
+    {
+        try
+        {
+            if (_config is null) return;
+            var directory = _fabricSelected ? _config.MinecraftDirectory : _config.StandaloneGameDirectory;
+            _lastCrash = await CrashDiagnosis.ReadAsync(directory, _game.RecentOutput, since);
+            InstallStatus.Text = _lastCrash.Findings[0].Title + ". Details are available in Settings → Crash diagnosis.";
+            ShowCrashReport($"Minecraft exited with code {exitCode}.");
+        }
+        catch (Exception ex) { ShowError(new IOException("Crash diagnosis could not read the game logs.", ex)); }
+    }
+    private void ShowCrashReport(string heading = "Crash diagnosis")
+    {
+        if (_lastCrash is null) return;
+        ShowError(new InvalidOperationException(heading));
+        ErrorSummary.Text = heading + " " + _lastCrash.Findings[0].Title + ". Review the evidence and next steps below.";
+        ErrorPreview.Text += "\n\n" + _lastCrash.Report;
+    }
 
     private static TextBlock Label(string text, double size = 12, bool muted = false) => new()
     { Text = text, FontSize = size, Foreground = muted ? Brushes.DarkGray : Brushes.WhiteSmoke, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
@@ -135,12 +156,17 @@ public partial class MainWindow
     private async Task InstallBrowserModAsync(ModProject mod) => await MutateLibraryAsync(async () =>
     {
         _modStatus.Text = "Resolving " + mod.Title + " and its required dependencies…";
-        var plan = await _modrinth.PlanAsync(mod.ProjectId, mod.Title, _modPreviews.IsChecked == true, OperationToken);
-        await InstallModPlanAsync(plan);
+        var resolved = await new ModCompatibilityPlanner(_modrinth, _downloads).ResolveAsync(_config!.MinecraftDirectory, mod.ProjectId, mod.Title, _modPreviews.IsChecked == true, OperationToken);
+        await InstallModPlanAsync(resolved.Entries, recheck: false);
         await SearchModsAsync();
     });
-    private async Task InstallModPlanAsync(List<ModPlanEntry> plan)
+    private async Task InstallModPlanAsync(List<ModPlanEntry> plan, bool recheck = true)
     {
+        if (recheck)
+        {
+            var root = plan.Last();
+            plan = (await new ModCompatibilityPlanner(_modrinth, _downloads).ResolveAsync(_config!.MinecraftDirectory, root.Version.ProjectId, root.Title, _modPreviews.IsChecked == true, OperationToken)).Entries;
+        }
         await new ModLibrary(_config!.MinecraftDirectory, _downloads, _modrinth).InstallAsync(plan, OperationToken);
         SelectProfile(true, false); _config.SelectedProfile = "fabric"; await _config.SaveAsync();
     }
@@ -173,13 +199,15 @@ public partial class MainWindow
         catch (Exception ex) { if (!token.IsCancellationRequested) _modDetails.Children.Add(Label("Description unavailable: " + ErrorReport.Redact(ex.Message), 12, true)); }
         try
         {
-            var plan = await _modrinth.PlanAsync(mod.ProjectId, mod.Title, _modPreviews.IsChecked == true, token); token.ThrowIfCancellationRequested();
+            var resolved = await new ModCompatibilityPlanner(_modrinth, _downloads).ResolveAsync(_config!.MinecraftDirectory, mod.ProjectId, mod.Title, _modPreviews.IsChecked == true, token);
+            var plan = resolved.Entries; token.ThrowIfCancellationRequested();
             var detection = _config is null ? new ModDetectionResult([], null) : await (_modDetection ??= new(_modrinth)).ScanAsync(_config.MinecraftDirectory, token);
             var installed = detection.Mods.FirstOrDefault(m => m.ProjectId == mod.ProjectId);
             var current = _config is null ? null : (await new ModLibrary(_config.MinecraftDirectory, _downloads).LoadAsync()).FirstOrDefault(m => m.ProjectId == mod.ProjectId);
             token.ThrowIfCancellationRequested();
             status.Text = $"FABRIC 1.21.11 · {plan.Count} {(plan.Count == 1 ? "mod" : "mods")} including dependencies · {plan.Sum(p => p.File.Size) / 1048576d:0.0} MB";
             foreach (var entry in plan) installPanel.Children.Add(Label($"{entry.Title} · {entry.Version.VersionNumber} · {entry.Version.VersionType}", 11, true));
+            foreach (var note in resolved.Notes) installPanel.Children.Add(Label(note, 11, true));
             var upToDate = installed?.VersionId == plan.First(p => p.Version.ProjectId == mod.ProjectId).Version.Id;
             if (installed is not null) installPanel.Children.Add(Label($"Installed: {installed.Version} · {(installed.Enabled ? "Enabled" : "Disabled")}" + (installed.Managed ? "" : " · detected in your mods folder"), 12));
             var actions = new WrapPanel();
@@ -187,9 +215,9 @@ public partial class MainWindow
             {
                 await InstallModPlanAsync(plan); await ShowModAsync(mod);
             }));
-            install.IsEnabled = !upToDate && (installed is null || installed.Managed); actions.Children.Add(install);
+            install.IsEnabled = !upToDate; actions.Children.Add(install);
             if (current is not null) actions.Children.Add(ActionButton("REINSTALL / REPAIR", () => MutateLibraryAsync(async () => { await InstallModPlanAsync(plan); await ShowModAsync(mod); })));
-            if (installed is { Managed: false }) installPanel.Children.Add(Label("This local mod is preserved. Use the Installed view to locate its file.", 11, true));
+            if (installed is { Managed: false }) installPanel.Children.Add(Label("Detected local mod. Replaced versions are backed up in the mods folder's .replaced directory.", 11, true));
             installPanel.Children.Add(actions);
             installPanel.Children.Add(Label("Required dependencies are included automatically. Installs use the Fabric profile.", 11, true));
         }
@@ -244,7 +272,7 @@ public partial class MainWindow
             var general = new StackPanel(); general.Children.Add(Label("Game & appearance", 18)); general.Children.Add(Label("Memory, resolution, fullscreen, folders and your preferred theme.", 12, true));
             var controls = new WrapPanel(); controls.Children.Add(ActionButton("GAME SETTINGS", () => { Settings_Click(this, new()); return Task.CompletedTask; }));
             controls.Children.Add(ActionButton("APPEARANCE", () => { Navigate("theme"); return Task.CompletedTask; })); general.Children.Add(controls); content.Children.Add(Card(general));
-            foreach (var section in new[] { ("servers", "Server favorites", "Saved servers with quick joining."), ("downloads", "Downloads", "Transfer progress, pause, resume and cancel."), ("installed", "Updates", "Installed versions and available client or launcher updates."), ("history", "Update history & rollback", "Restore a saved version or review recent update activity."), ("health", "Installation health", "Check Java, game files and your mod library.") })
+            foreach (var section in new[] { ("servers", "Server favorites", "Saved servers with quick joining."), ("downloads", "Downloads", "Transfer progress, pause, resume and cancel."), ("installed", "Updates", "Installed versions and available client or launcher updates."), ("history", "Update history & rollback", "Restore a saved version or review recent update activity."), ("health", "Installation health", "Check Java, game files and your mod library."), ("diagnosis", "Crash diagnosis", "Likely causes, evidence and next steps from game logs.") })
             {
                 var body = new DockPanel(); var button = ActionButton("OPEN", async () => { Navigate(section.Item1); if (section.Item1 == "installed") await RunOperationAsync(() => RefreshUpdateStatusAsync()); else await ShowLibraryPageAsync(section.Item1); });
                 DockPanel.SetDock(button, Dock.Right); body.Children.Add(button);
@@ -252,7 +280,30 @@ public partial class MainWindow
             }
             return;
         }
-        if (page == "downloads")
+        if (page == "diagnosis")
+        {
+            content.Children.Add(Label("Crash diagnosis", 28));
+            content.Children.Add(Label("Analyzed locally. Reports are only shared when you choose Send error. Findings are clues, not guaranteed diagnoses.", 12, true));
+            content.Children.Add(ActionButton("ANALYZE LATEST LOGS", async () =>
+            {
+                if (_config is null) throw new InvalidOperationException("Wait for launcher setup to finish.");
+                _lastCrash = await CrashDiagnosis.ReadAsync(_fabricSelected ? _config.MinecraftDirectory : _config.StandaloneGameDirectory, "");
+                await ShowLibraryPageAsync("diagnosis");
+            }));
+            if (_lastCrash is null) content.Children.Add(Label("No crash analyzed this session. Analyze latest logs to investigate an earlier crash.", 12, true));
+            else
+            {
+                content.Children.Add(Label("Sources: " + _lastCrash.Sources, 11, true));
+                foreach (var finding in _lastCrash.Findings)
+                {
+                    var body = new StackPanel(); body.Children.Add(Label(finding.Title, 18)); body.Children.Add(Label(finding.Confidence, 10, true));
+                    body.Children.Add(Label(finding.Explanation)); body.Children.Add(Label("Next: " + finding.NextStep));
+                    body.Children.Add(Label(finding.Evidence, 10, true)); content.Children.Add(Card(body));
+                }
+                content.Children.Add(ActionButton("REVIEW / SEND REPORT", () => { ShowCrashReport(); return Task.CompletedTask; }));
+            }
+        }
+        else if (page == "downloads")
         {
             content.Children.Add(Label("Downloads", 28)); content.Children.Add(Label("Mods, client updates and Java · verified before installation · automatic network retries", 11, true));
             content.Children.Add(ActionButton("CLEAR FINISHED", async () => { foreach (var item in _downloads.Items.Where(i => !i.Active).ToList()) _downloads.Items.Remove(item); await ShowLibraryPageAsync("downloads"); }));

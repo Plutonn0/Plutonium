@@ -101,26 +101,32 @@
         </Style>
         <Style TargetType="Slider" x:Key="DarkSlider">
             <Setter Property="Height" Value="36" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="AutoToolTipPlacement" Value="TopLeft" />
+            <Setter Property="AutoToolTipPrecision" Value="0" />
             <Setter Property="IsMoveToPointEnabled" Value="True" />
             <Setter Property="IsSnapToTickEnabled" Value="True" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Slider">
-                        <Grid Margin="0,0,2,0" Background="Transparent">
+                        <Grid Margin="0,0,2,0" Background="Transparent" SnapsToDevicePixels="True">
+                            <Border x:Name="FocusOutline" BorderBrush="#777777" BorderThickness="1" Opacity="0" />
                             <Track x:Name="PART_Track" VerticalAlignment="Center" IsDirectionReversed="False" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" Value="{Binding Value,RelativeSource={RelativeSource TemplatedParent},Mode=TwoWay}">
                                 <Track.DecreaseRepeatButton>
                                     <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
-                                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="3" Background="#E5E5E5" /></ControlTemplate></RepeatButton.Template>
+                                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Grid Background="Transparent"><Border Height="4" Background="#E5E5E5" /></Grid></ControlTemplate></RepeatButton.Template>
                                     </RepeatButton>
                                 </Track.DecreaseRepeatButton>
                                 <Track.Thumb>
-                                    <Thumb Width="12" Height="18">
+                                    <Thumb Width="24" Height="32" Cursor="SizeWE">
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="Thumb">
-                                                <Border x:Name="Handle" Background="#E8E8E8" BorderBrush="#FFFFFF" BorderThickness="1" />
+                                                <Grid Background="Transparent"><Border x:Name="Handle" Width="10" Height="18" Background="#E8E8E8" BorderBrush="#FFFFFF" BorderThickness="1" /></Grid>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Handle" Property="Background" Value="White" /></Trigger>
                                                     <Trigger Property="IsDragging" Value="True"><Setter TargetName="Handle" Property="Background" Value="#999999" /></Trigger>
+                                                    <EventTrigger RoutedEvent="MouseEnter"><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Handle" Storyboard.TargetProperty="Height" To="24" Duration="0:0:0.12" /></Storyboard></BeginStoryboard></EventTrigger>
+                                                    <EventTrigger RoutedEvent="MouseLeave"><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Handle" Storyboard.TargetProperty="Height" To="18" Duration="0:0:0.12" /></Storyboard></BeginStoryboard></EventTrigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </Thumb.Template>
@@ -128,15 +134,55 @@
                                 </Track.Thumb>
                                 <Track.IncreaseRepeatButton>
                                     <RepeatButton Command="Slider.IncreaseLarge" Focusable="False">
-                                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="3" Background="#363636" /></ControlTemplate></RepeatButton.Template>
+                                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Grid Background="Transparent"><Border Height="4" Background="#363636" /></Grid></ControlTemplate></RepeatButton.Template>
                                     </RepeatButton>
                                 </Track.IncreaseRepeatButton>
                             </Track>
                         </Grid>
-                        <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger></ControlTemplate.Triggers>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="FocusOutline" Property="Opacity" Value="1" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style TargetType="Slider" BasedOn="{StaticResource DarkSlider}" />
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Background" Value="#111111" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                            <Track x:Name="PART_Track" Orientation="{TemplateBinding Orientation}" IsDirectionReversed="True"
+                                   Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" ViewportSize="{TemplateBinding ViewportSize}"
+                                   Value="{Binding Value,RelativeSource={RelativeSource TemplatedParent},Mode=TwoWay}">
+                                <Track.DecreaseRepeatButton><RepeatButton x:Name="Before" Command="ScrollBar.PageUpCommand" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
+                                <Track.Thumb><Thumb x:Name="ScrollThumb" MinHeight="24" MinWidth="8"><Thumb.Template><ControlTemplate TargetType="Thumb">
+                                    <Border x:Name="ScrollHandle" Background="#555555" Margin="2" />
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ScrollHandle" Property="Background" Value="#999999" /></Trigger>
+                                        <Trigger Property="IsDragging" Value="True"><Setter TargetName="ScrollHandle" Property="Background" Value="#EEEEEE" /></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+                                <Track.IncreaseRepeatButton><RepeatButton x:Name="After" Command="ScrollBar.PageDownCommand" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Orientation" Value="Horizontal">
+                                <Setter TargetName="ScrollThumb" Property="MinHeight" Value="8" />
+                                <Setter TargetName="ScrollThumb" Property="MinWidth" Value="24" />
+                                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                                <Setter TargetName="Before" Property="Command" Value="ScrollBar.PageLeftCommand" />
+                                <Setter TargetName="After" Property="Command" Value="ScrollBar.PageRightCommand" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.3" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers><Trigger Property="Orientation" Value="Horizontal"><Setter Property="Width" Value="Auto" /><Setter Property="Height" Value="12" /></Trigger></Style.Triggers>
         </Style>
         <Style TargetType="ComboBox" x:Key="DarkComboBox">
             <Setter Property="Foreground" Value="#EEEEEE" />

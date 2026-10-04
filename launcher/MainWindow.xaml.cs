@@ -214,16 +214,15 @@ public partial class MainWindow : Window
             StopGameButton.Visibility = Visibility.Collapsed;
             var code = _stopRequested ? 0 : process.ExitCode;
             _gameProcess = null;
-            _needsRepair = code != 0;
+            _needsRepair = false;
             SetBusy(false);
             PlayButton.Content = _needsRepair ? "REPAIR & PLAY" : "PLAY";
             Progress.Visibility = Visibility.Collapsed;
-            if (_needsRepair)
+            if (code != 0)
             {
-                var error = new InvalidOperationException($"Minecraft stopped with exit code {code}. Try Repair in the Play page.\n\n" + _game.RecentOutput);
-                SetStage("REPAIR NEEDED", $"Minecraft stopped unexpectedly (exit code {code}).");
-                InstallStatus.Text = "Minecraft failed to run. Repair and try again; the error report includes recent game output.";
-                ShowError(error);
+                SetStage("STOPPED", $"Minecraft stopped unexpectedly (exit code {code}).");
+                InstallStatus.Text = "Checking the game output and crash report for a likely cause…";
+                _ = DiagnoseCrashAsync(started, code);
             }
             else SetStage("READY", "Minecraft closed");
             if (GetSmokeLaunchProfile() is null) process.Dispose();

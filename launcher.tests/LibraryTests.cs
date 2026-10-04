@@ -243,7 +243,7 @@ public sealed class LibraryTests : IDisposable
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3)); var service = new ModrinthService();
         var result = await service.SearchAsync("mod menu", "relevance", "", 0, timeout.Token); Assert.NotEmpty(result.Hits);
-        var plan = await service.PlanAsync("modmenu", "Mod Menu", false, timeout.Token);
+        var plan = (await new ModCompatibilityPlanner(service, new()).ResolveAsync(_root, "modmenu", "Mod Menu", false, timeout.Token)).Entries;
         Assert.All(plan, entry => Assert.True(ModrinthService.Compatible(entry.Version)));
         var downloads = new DownloadManager(); var library = new ModLibrary(_root, downloads);
         await library.InstallAsync(plan, timeout.Token);
@@ -279,6 +279,15 @@ public sealed class LibraryTests : IDisposable
                 slider.ApplyTemplate(); slider.Value = 17;
                 var track = (System.Windows.Controls.Primitives.Track)slider.Template.FindName("PART_Track", slider);
                 Assert.Equal(17, track.Value); Assert.Equal(2, track.Minimum); Assert.Equal(32, track.Maximum);
+                System.Windows.Controls.Slider.IncreaseSmall.Execute(null, slider); Assert.Equal(18, slider.Value);
+                foreach (var orientation in new[] { System.Windows.Controls.Orientation.Vertical, System.Windows.Controls.Orientation.Horizontal })
+                {
+                    var scrollbar = new System.Windows.Controls.Primitives.ScrollBar { Orientation = orientation, Minimum = 0, Maximum = 100, ViewportSize = 20, Value = 30, Style = (System.Windows.Style)app.FindResource(typeof(System.Windows.Controls.Primitives.ScrollBar)) };
+                    scrollbar.ApplyTemplate();
+                    var scrollTrack = (System.Windows.Controls.Primitives.Track)scrollbar.Template.FindName("PART_Track", scrollbar);
+                    Assert.Equal(orientation, scrollTrack.Orientation); Assert.Equal(30, scrollTrack.Value); Assert.Equal(20, scrollTrack.ViewportSize);
+                    Assert.Equal(orientation == System.Windows.Controls.Orientation.Vertical, scrollTrack.IsDirectionReversed);
+                }
                 var dropdown = (System.Windows.Controls.ComboBox)window.FindName("ResolutionInput");
                 dropdown.ApplyTemplate(); dropdown.SelectedValue = "2560x1440";
                 Assert.NotNull(dropdown.SelectedItem);

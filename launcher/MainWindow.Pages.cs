@@ -14,8 +14,8 @@ public partial class MainWindow
         var pages = new Dictionary<string, FrameworkElement> { ["play"] = PlayPage, ["account"] = AccountsOverlay,
             ["installed"] = UpdatesOverlay, ["files"] = FilesPage, ["theme"] = ThemePage, ["mods"] = _modsPage,
             ["library"] = _libraryPage };
-        var contentPage = page is "settings" or "servers" or "downloads" or "history" or "health" ? "library" : page;
-        var navigationPage = page is "settings" or "servers" or "downloads" or "history" or "health" or "installed" or "theme" ? "settings" : page;
+        var contentPage = page is "settings" or "servers" or "downloads" or "history" or "health" or "diagnosis" ? "library" : page;
+        var navigationPage = page is "settings" or "servers" or "downloads" or "history" or "health" or "diagnosis" or "installed" or "theme" ? "settings" : page;
         foreach (var pair in pages) pair.Value.Visibility = pair.Key == contentPage ? Visibility.Visible : Visibility.Collapsed;
         foreach (var button in Navigation.Children.OfType<Button>())
             button.BorderBrush = Equals(button.Tag, navigationPage) ? Brushes.White : (Brush)FindResource("StrokeBrush");
