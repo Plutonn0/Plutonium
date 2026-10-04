@@ -34,8 +34,16 @@ public final class SmokeTest {
         try {
             if(stage==0&&ticks%100==0)System.out.println("[Plutonium smoke] Waiting at "+(mc.screen==null?"no screen":mc.screen.getClass().getName()));
             if(stage==0 && ticks>60 && mc.screen instanceof TitleScreen) {
+                Path videoProbe=mc.gameDirectory.toPath().resolve("video-settings-probe.txt");
+                if(Files.exists(videoProbe))check(mc.options.renderDistance().get()==7&&mc.options.simulationDistance().get()==8&&mc.options.framerateLimit().get()==160,"Video settings persist across a full Minecraft restart");
                 check(mc.getResourceManager().getResource(net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "font/quirk/ui.ttf")).isPresent(), "Bundled high-resolution UI font loads");
                 mc.options.pauseOnLostFocus=false; mc.options.renderDistance().set(6); mc.options.guiScale().set(2);
+                mc.options.renderDistance().set(7);mc.options.simulationDistance().set(8);mc.options.framerateLimit().set(160);
+                VideoSettingsPersistence.saveOnExit();
+                mc.options.renderDistance().set(4);mc.options.simulationDistance().set(12);mc.options.framerateLimit().set(120);
+                mc.options.load();
+                check(mc.options.renderDistance().get()==7&&mc.options.simulationDistance().get()==8&&mc.options.framerateLimit().get()==160,"Video settings survive save and reload");
+                Files.writeString(videoProbe,"7,8,160");
                 // Render a real 4K framebuffer even when this desktop caps the OS window size.
                 mc.getWindow().setWidth(3840);mc.getWindow().setHeight(2160);mc.resizeDisplay();
                 mc.createWorldOpenFlows().createFreshLevel("Plutonium-smoke-"+System.currentTimeMillis(),
@@ -210,7 +218,7 @@ public final class SmokeTest {
                 if(step==20){check(!mc.player.getAbilities().flying&&!mc.player.getAbilities().mayfly,"Fly restores survival abilities when disabled");
                     mc.getConnection().sendCommand("item replace entity @s armor.chest with elytra");mc.getConnection().sendCommand("tp @s 0 40 0");}
                 if(step==35){var server=mc.getSingleplayerServer();server.execute(()->server.getPlayerList().getPlayer(mc.player.getUUID()).startFallFlying());mc.player.startFallFlying();mc.player.setXRot(20);Quirk.settings().module("elytraglide").enabled.set(true);}
-                if(step==45){check(mc.player.isFallFlying()&&mc.player.getXRot()<15,"Elytra Glide stabilizes pitch during flight");Quirk.settings().module("elytraglide").enabled.set(false);Quirk.settings().module("freecam").enabled.set(true);stage=3;
+                if(step==45){check(mc.player.isFallFlying()&&mc.player.getDeltaMovement().length()>.4,"Elytra Glide provides sustained momentum without rockets");Quirk.settings().module("elytraglide").enabled.set(false);Quirk.settings().module("freecam").enabled.set(true);stage=3;
                     mc.schedule(()->{mc.level.disconnect(net.minecraft.network.chat.Component.literal("Smoke test complete"));mc.disconnectWithSavingScreen();});}
             } else if(stage==3 && mc.level==null) {
                 check(!Quirk.freecam()&&!Quirk.settings().module("freecam").on(),"Disconnect disarms freecam"); finish(true,"All in-game smoke assertions passed.");

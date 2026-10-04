@@ -11,9 +11,11 @@ public sealed class JavaRuntimeInstaller
     private const string AdoptiumManifest = "https://api.adoptium.net/v3/assets/latest/21/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse";
     private readonly HttpClient _httpClient;
     private readonly string _dataDirectory;
+    private readonly DownloadManager? _downloads;
 
-    public JavaRuntimeInstaller(HttpClient? httpClient = null, string? dataDirectory = null)
+    public JavaRuntimeInstaller(HttpClient? httpClient = null, string? dataDirectory = null, DownloadManager? downloads = null)
     {
+        _downloads = downloads;
         _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         _dataDirectory = dataDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Plutonium Client");
@@ -46,7 +48,8 @@ public sealed class JavaRuntimeInstaller
 
         try
         {
-            await DownloadAsync(uri, archivePath, progress, cancellationToken);
+            if (_downloads is null) await DownloadAsync(uri, archivePath, progress, cancellationToken);
+            else await _downloads.DownloadAsync("Java 21 runtime", uri.AbsoluteUri, archivePath, expectedHash, HashAlgorithmName.SHA256, cancellationToken, progress);
             await using (var archive = File.OpenRead(archivePath))
             {
                 var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(archive, cancellationToken));

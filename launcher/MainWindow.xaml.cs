@@ -28,7 +28,15 @@ public partial class MainWindow : Window
     private bool _gameWindowVisible;
     private bool _stopRequested;
 
-    public MainWindow() => InitializeComponent();
+    public MainWindow()
+    {
+        InitializeComponent(); InitializeLibraryPages(); _updates.Downloads = _downloads; _game.Downloads = _downloads;
+        _downloads.Items.CollectionChanged += async (_, _) =>
+        {
+            if (_libraryPage.Visibility == Visibility.Visible && _libraryPage.Tag as string == "downloads")
+                await ShowLibraryPageAsync("downloads");
+        };
+    }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e) => await InitializeAsync();
 
@@ -106,7 +114,7 @@ public partial class MainWindow : Window
             SetStage("SETTING UP", "Installing a verified Java 21 runtime");
             Progress.Visibility = Visibility.Visible;
             var percent = new Progress<double>(value => Progress.Value = value * 100);
-            _java = await new JavaRuntimeInstaller(dataDirectory: _config.DataDirectory).InstallAsync(percent, cancellationToken);
+            _java = await new JavaRuntimeInstaller(dataDirectory: _config.DataDirectory, downloads: _downloads).InstallAsync(percent, cancellationToken);
         }
         _config.JavaPath = _java.ExecutablePath;
         JavaVersion.Text = _java.DisplayVersion;
@@ -121,6 +129,7 @@ public partial class MainWindow : Window
 
     private async void Play_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
     {
+        var serverToJoin = _serverToJoin; _serverToJoin = null;
         if (_config is null) throw new InvalidOperationException("Launcher settings have not loaded.");
         SetStage("CHECKING", "Verifying Plutonium and game files");
         _installation = await _bootstrap.InstallOrRepairAsync(_config, new Progress<string>(SetInstallProgress), OperationToken);
@@ -151,7 +160,7 @@ public partial class MainWindow : Window
         var gameProgress = new Progress<string>(SetInstallProgress);
         var byteProgress = new Progress<double>(value => Progress.Value = value * 100);
         _gameProcess = await _game.PrepareAndLaunchAsync(_config, _java!, _session, _fabricSelected,
-            gameProgress, byteProgress, OperationToken);
+            gameProgress, byteProgress, OperationToken, serverToJoin);
         _needsRepair = false;
         MonitorGameProcess(_gameProcess);
         if (_gameProcess is null) return;
@@ -247,7 +256,7 @@ public partial class MainWindow : Window
         catch (Exception ex) { ShowError(ex); }
     }
 
-    private async Task RunOperationAsync(Func<Task> operation)
+    private async Task RunOperationAsync(Func<Task> operation, bool affectsClientInstallation = true)
     {
         if (_busy || _gameProcess is not null) return;
         _operation = new CancellationTokenSource();
@@ -263,7 +272,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             InstallStatus.Text = ErrorReport.Redact(ex.Message);
-            if (ex is IOException or InvalidDataException) _needsRepair = true;
+            if (affectsClientInstallation && ex is (IOException or InvalidDataException)) _needsRepair = true;
             SetStage(_needsRepair ? "REPAIR NEEDED" : "ERROR", InstallStatus.Text);
             ShowError(ex);
         }
@@ -347,6 +356,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _modSearch?.Cancel(); _modPlan?.Cancel();
         _gameMonitor?.Stop();
         _operation?.Cancel();
         base.OnClosed(e);
@@ -366,8 +376,11 @@ public partial class MainWindow : Window
         if (show && _config is not null)
         {
             GameDirectoryInput.Text = _config.MinecraftDirectory;
-            MemoryInput.Text = _config.MaximumMemoryGb.ToString();
-            ResolutionInput.Text = $"{_config.ScreenWidth}x{_config.ScreenHeight}";
+            MemoryInput.Value = _config.MaximumMemoryGb;
+            var resolution = $"{_config.ScreenWidth}x{_config.ScreenHeight}";
+            if (!ResolutionInput.Items.OfType<System.Windows.Controls.ComboBoxItem>().Any(item => Equals(item.Tag, resolution)))
+                ResolutionInput.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = "Custom · " + resolution, Tag = resolution });
+            ResolutionInput.SelectedValue = resolution;
             FullscreenInput.IsChecked = _config.Fullscreen;
             ClientManifestInput.Text = _config.ClientManifestUrl;
             LauncherManifestInput.Text = _config.LauncherManifestUrl;
@@ -386,10 +399,10 @@ public partial class MainWindow : Window
         if (_config is null) return;
         try
         {
-            var resolution = ResolutionInput.Text.Split('x', 'X');
+            var resolution = ((string?)ResolutionInput.SelectedValue ?? "1920x1080").Split('x', 'X');
             if (resolution.Length != 2 || !int.TryParse(resolution[0], out var width) || !int.TryParse(resolution[1], out var height))
                 throw new FormatException("Enter the resolution as width x height.");
-            if (!int.TryParse(MemoryInput.Text, out var memory)) throw new FormatException("Enter memory as a whole number of gigabytes.");
+            var memory = (int)Math.Round(MemoryInput.Value);
             if (string.IsNullOrWhiteSpace(GameDirectoryInput.Text)) throw new FormatException("Choose a Minecraft directory.");
             UpdateService.ValidateManifestUrl(ClientManifestInput.Text.Trim());
             UpdateService.ValidateManifestUrl(LauncherManifestInput.Text.Trim());

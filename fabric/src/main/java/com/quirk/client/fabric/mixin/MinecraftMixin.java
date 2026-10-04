@@ -11,6 +11,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Minecraft.class)
 abstract class MinecraftMixin {
+    @Inject(method="stop",at=@At("HEAD"))
+    private void plutonium$saveVideoSettings(CallbackInfo ci){Quirk.saveVideoSettings();}
     @Shadow private int rightClickDelay;
     @Shadow private int missTime;
     @Inject(method="startAttack",at=@At("HEAD"))

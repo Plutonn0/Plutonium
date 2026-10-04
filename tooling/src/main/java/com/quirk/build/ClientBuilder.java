@@ -79,6 +79,9 @@ public final class ClientBuilder {
         int hooks = 0;
         for (MethodNode m : c.methods) {
             String owner = c.name;
+            if(owner.endsWith("/Minecraft")&&m.name.equals("stop")&&m.desc.equals("()V")){
+                m.instructions.insert(call("saveVideoSettings","()V"));hooks++;
+            }
             if(owner.endsWith("/SoundBufferLibrary")&&m.name.equals("getStream")){
                 InsnList h=new InsnList();h.add(new VarInsnNode(Opcodes.ALOAD,1));h.add(call("radioStream","(Lnet/minecraft/resources/Identifier;)Ljava/util/concurrent/CompletableFuture;"));h.add(new InsnNode(Opcodes.DUP));LabelNode next=new LabelNode();h.add(new JumpInsnNode(Opcodes.IFNULL,next));h.add(new InsnNode(Opcodes.ARETURN));h.add(next);h.add(new InsnNode(Opcodes.POP));m.instructions.insert(h);hooks++;
             }
@@ -224,7 +227,7 @@ public final class ClientBuilder {
                 h.add(new InsnNode(Opcodes.RETURN)); h.add(next); m.instructions.insert(h); hooks++;
             }
         }
-        int expected=c.name.endsWith("/Minecraft")?4:(c.name.endsWith("/Camera")||c.name.endsWith("/GameRenderer")||c.name.endsWith("/Gui")||c.name.endsWith("/ClientPacketListener"))?2:
+        int expected=c.name.endsWith("/Minecraft")?5:(c.name.endsWith("/Camera")||c.name.endsWith("/GameRenderer")||c.name.endsWith("/Gui")||c.name.endsWith("/ClientPacketListener"))?2:
                 c.name.endsWith("/LightTexture")?3:c.name.endsWith("/BlockBehaviour$BlockStateBase")?3:1;
         if (hooks != expected) throw new IllegalStateException("Expected " + expected + " hooks in " + c.name + ", found " + hooks);
         // Mojang's optimized frames can discard even `this` at a return. Recompute using

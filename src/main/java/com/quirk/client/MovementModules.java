@@ -7,7 +7,7 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.player.LocalPlayer;
 import org.lwjgl.glfw.GLFW;
 
-/** Movement assistance uses normal bindings and respects flight permissions. */
+/** Inventory movement, permission-aware creative flight, and elytra propulsion. */
 public final class MovementModules {
     private static LocalPlayer flightOwner;
     private static boolean previousFlying, previousAllowed, inventoryKeys;
@@ -39,7 +39,7 @@ public final class MovementModules {
         if(flightOwner==player){player.getAbilities().setFlyingSpeed((float)(.05*fly.number("speed")));player.getAbilities().flying=true;}
         var glide=settings.module("elytraglide");
         if(glide.on()&&player.isFallFlying()&&mc.screen==null&&mc.isWindowActive()&&!Quirk.freecam())
-            player.setXRot(player.getXRot()+(float)Math.clamp(glide.number("pitch")-player.getXRot(),-1.5,1.5));
+            player.setDeltaMovement(GlideMotion.accelerate(player.getDeltaMovement(),player.getLookAngle(),glide.number("speed"),glide.number("acceleration")));
     }
     private static boolean typing(net.minecraft.client.gui.components.events.GuiEventListener listener){
         if(listener instanceof EditBox box&&box.isFocused())return true;

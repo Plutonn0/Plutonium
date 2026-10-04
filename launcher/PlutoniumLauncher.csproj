@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Plutonium Client</AssemblyName>
     <RootNamespace>PlutoniumLauncher</RootNamespace>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <ApplicationIcon>Assets\Plutonium.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile>
@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="..\build\client\plutonium-1.21.11.jar" LogicalName="PlutoniumLauncher.Payload.standalone.jar" />
-    <EmbeddedResource Include="..\fabric\build\libs\plutonium-client-fabric-1.1.1.jar" LogicalName="PlutoniumLauncher.Payload.fabric.jar" />
+    <EmbeddedResource Include="..\fabric\build\libs\plutonium-client-fabric-1.2.0.jar" LogicalName="PlutoniumLauncher.Payload.fabric.jar" />
     <EmbeddedResource Include="..\build\game\version.json" LogicalName="PlutoniumLauncher.Payload.minecraft-version.json" />
     <EmbeddedResource Include="..\licenses\Lato-OFL.txt" LogicalName="PlutoniumLauncher.Licenses.Lato-OFL.txt" />
     <EmbeddedResource Include="..\licenses\CmlLib-Core-MIT.txt" LogicalName="PlutoniumLauncher.Licenses.CmlLib-Core-MIT.txt" />

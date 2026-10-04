@@ -75,8 +75,9 @@ public final class Quirk {
         System.out.println("[Plutonium] Client initialized: Minecraft 1.21.11 / Java 21");
     }
     public static void tick() {
-        initialize(); syncFreecam(); syncFreelook(); MovementModules.tick(); automate(); aimAssist(); extraAutomation(); store.tick(); overlay.tick(); Notifications.tick(); Entertainment.tick();
+        initialize(); VideoSettingsPersistence.tick(); syncFreecam(); syncFreelook(); MovementModules.tick(); automate(); aimAssist(); extraAutomation(); store.tick(); overlay.tick(); Notifications.tick(); Entertainment.tick();
     }
+    public static void saveVideoSettings(){VideoSettingsPersistence.saveOnExit();}
     public static java.util.concurrent.CompletableFuture<net.minecraft.client.sounds.AudioStream> radioStream(net.minecraft.resources.Identifier id){
         return id.equals(Entertainment.RADIO_STREAM_PATH)?java.util.concurrent.CompletableFuture.supplyAsync(Entertainment::openRadioAudioStream,net.minecraft.util.Util.nonCriticalIoPool()):null;
     }

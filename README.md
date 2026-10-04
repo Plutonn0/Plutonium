@@ -8,9 +8,9 @@ Build and run `dist\Plutonium Client.exe`. It installs as a per-user Windows app
 
 Choose **STANDALONE** or **FABRIC**, then press **PLAY**. Fabric uses `%APPDATA%\.minecraft\mods`; the standalone profile reuses an existing legacy Quirk game directory when found. The launcher does not rewrite Minecraft launcher profiles or remove worlds, settings, or unrelated mods. Verified client and launcher updates use the latest GitHub release by default; update sources remain configurable in Settings.
 
-Launcher 1.1 adds Play, Account, Installed, Files and Preferred theme pages, a dark Play button, a player-skin avatar and the Plutonium app icon. The **Account** page lets you add Microsoft accounts, choose which one to use, or sign out of an account locally. Saved sign-ins are encrypted for the current Windows user. Each Play refreshes the selected Minecraft session before starting the game. The Cancel button stops cancellable sign-in, setup, and download operations.
+Launcher 1.2 uses five main pages: Play, Mods, Account, Files and Settings, with a dark Play button, a player-skin avatar and the Plutonium app icon. The **Account** page lets you add Microsoft accounts, choose which one to use, or sign out of an account locally. Saved sign-ins are encrypted for the current Windows user. Each Play refreshes the selected Minecraft session before starting the game. The Cancel button stops cancellable sign-in, setup, and download operations.
 
-The **Installed** page shows separate client and launcher versions. Manual checks only check; with automatic updates enabled, startup and Play checks also install verified client updates and restart for newer launchers. An unavailable feed shows its actual error and still permits playing the installed client. Launcher replacement keeps a `.previous` backup beside the executable. Repair restores missing standalone metadata without downgrading a newer client jar. Profile changes, repair, and updates are disabled while the launched game is running.
+The **Settings → Updates** section shows separate client and launcher versions. Manual checks only check; with automatic updates enabled, startup and Play checks also install verified client updates and restart for newer launchers. An unavailable feed shows its actual error and still permits playing the installed client. Launcher replacement keeps a `.previous` backup beside the executable. Repair restores missing standalone metadata without downgrading a newer client jar. Profile changes, repair, and updates are disabled while the launched game is running.
 
 Client release manifests are HTTPS JSON with `version`, `standalone`, and `fabric` fields; each asset has an HTTPS `url` and a 64-character SHA-256 hex digest. Launcher manifests use `version` and an `executable` asset with the same fields. A client manifest example is:
 
@@ -22,7 +22,23 @@ Client release manifests are HTTPS JSON with `version`, `standalone`, and `fabri
 }
 ```
 
-## Menu controls
+## Launcher library (1.2)
+
+- **Mods**, directly below Play, searches Modrinth with Minecraft 1.21.11 and Fabric filters, category and sort controls, pagination, icons and descriptions. Full-width cards offer Install/Installed and View. View opens the complete description, gallery and compatible dependency plan natively inside the launcher. Existing mod jars (including renamed and disabled files) are identified through Modrinth SHA-512 lookups and marked Installed. Stable releases are the default; beta/alpha versions are opt-in. Installation automatically selects the Fabric profile.
+- **Installed mods** supports update checks, reinstall, enable/disable and removal. Required dependencies are resolved recursively; incompatible versions and duplicate top-level Fabric mod IDs are rejected. Every jar is SHA-512 verified and inspected before the complete plan is committed. Local/unmanaged jars remain visible but are never overwritten. Removed managed jars are retained in `mods/.removed`; modified managed files replaced during repair are preserved in `mods/.replaced`. The index is `mods/.plutonium-mods.json`.
+- **Settings** groups game preferences, appearance, saved servers, downloads, updates, history and health checks. Memory uses a custom monochrome slider and resolution/search filters use matching custom dropdowns.
+- **Server favorites** saves names and addresses across restarts. Join starts Minecraft with its Quick Play multiplayer argument; Copy address and Remove are also available.
+- **Downloads** displays progress, size, speed, estimated remaining time, status and cancellation for mod, client, launcher and Java transfers. These transfers can pause/resume during the current launcher session and retry transient network failures up to twice. Minecraft's own asset/library preparation appears as a cancellable aggregate task; its installer resumes missing files on the next Play. Failed mod installations are retried from the original Install button so their dependency transaction remains intact.
+- **Health check** checks Java 21, writable game folders, disk space, client archives, managed-mod checksums and duplicate mod IDs. Client/Java repair is offered separately from mod reinstall. Minecraft libraries/assets are checked by the game installer when launching; this is not a guarantee that arbitrary third-party mods work together.
+- **Update history** records update activity and keeps checksum-verified pre-update snapshots for client and launcher rollback. Backups begin with updates performed by this launcher version. Restore is limited to the original installation location and disables automatic updates; client rollback pins survive bootstrap repair. Launcher rollback uses the same exit-and-replace helper as normal updates.
+
+All installed-file changes are blocked while the launcher is preparing or running Minecraft. Search remains available. Mod compatibility is based on Modrinth's version metadata and declared dependencies; a compatible listing does not guarantee compatibility with every other installed mod.
+
+Run launcher checks with `dotnet test launcher.tests/PlutoniumLauncher.Tests.csproj`. To additionally exercise live Modrinth search, dependency resolution, downloads and library persistence in a temporary folder, set `PLUTONIUM_LIVE_MODRINTH=1` for that test run. Tests never use the user's account or production mod directory.
+
+Elytra Glide now supplies smooth, configurable propulsion while already gliding; look in the direction you want to fly. It does not consume rockets or force your pitch. Render distance, simulation distance and the FPS limit are saved after changes and on normal shutdown using Minecraft’s native options file.
+
+## Client menu controls
 
 - **F8** opens or closes Plutonium; **ESC** closes it. The world continues running.
 - The compact, translucent module columns use centered Montserrat TrueType text and scale with the window, including 1440p and 4K. They do not force your monitor resolution.
@@ -38,7 +54,7 @@ See [launcher release and error reporting](docs/launcher-release.md) for hosting
 | Category | Modules |
 | --- | --- |
 | Combat | Aim Assist, Automace, Auto Totem, Double Anchor, No Hit Delay, Autoclicker |
-| Movement | Freecam, Sprint, Fast Place, Auto Clutch, Auto Firework |
+| Movement | Freecam, Fly, Elytra Glide, Inventory Move, Sprint, Fast Place, Auto Clutch, Auto Firework |
 | Render | Player ESP, Mob ESP, Storage ESP, Spawner ESP, Tracers, X-ray, Fullbright, SusChunk, Freelook, Name Tags, Pearl Trajectory |
 | Misc | Auto Eat, Auto Inv Totem, Fake Pay, Netherite Finder, Fake Stats |
 | HUD | Coordinates, Active Modules, Weather Notifier, Notifications |

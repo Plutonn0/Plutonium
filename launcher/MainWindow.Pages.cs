@@ -12,13 +12,25 @@ public partial class MainWindow
     private void Navigate(string page)
     {
         var pages = new Dictionary<string, FrameworkElement> { ["play"] = PlayPage, ["account"] = AccountsOverlay,
-            ["installed"] = UpdatesOverlay, ["files"] = FilesPage, ["theme"] = ThemePage };
-        foreach (var pair in pages) pair.Value.Visibility = pair.Key == page ? Visibility.Visible : Visibility.Collapsed;
+            ["installed"] = UpdatesOverlay, ["files"] = FilesPage, ["theme"] = ThemePage, ["mods"] = _modsPage,
+            ["library"] = _libraryPage };
+        var contentPage = page is "settings" or "servers" or "downloads" or "history" or "health" ? "library" : page;
+        var navigationPage = page is "settings" or "servers" or "downloads" or "history" or "health" or "installed" or "theme" ? "settings" : page;
+        foreach (var pair in pages) pair.Value.Visibility = pair.Key == contentPage ? Visibility.Visible : Visibility.Collapsed;
         foreach (var button in Navigation.Children.OfType<Button>())
-            button.BorderBrush = Equals(button.Tag, page) ? Brushes.White : (Brush)FindResource("StrokeBrush");
-        pages[page].BeginAnimation(OpacityProperty, new DoubleAnimation(.3, 1, TimeSpan.FromMilliseconds(180)));
+            button.BorderBrush = Equals(button.Tag, navigationPage) ? Brushes.White : (Brush)FindResource("StrokeBrush");
+        pages[contentPage].BeginAnimation(OpacityProperty, new DoubleAnimation(.3, 1, TimeSpan.FromMilliseconds(180)));
     }
-    private void Navigate_Click(object sender, RoutedEventArgs e) { RefreshAccounts(); Navigate((string)((Button)sender).Tag); }
+    private async void Navigate_Click(object sender, RoutedEventArgs e)
+    {
+        RefreshAccounts(); var page = (string)((Button)sender).Tag; Navigate(page);
+        try
+        {
+            if (page == "mods") { if (_installedMods) await ShowInstalledModsAsync(); else await SearchModsAsync(); }
+            if (page is "settings" or "servers" or "downloads" or "history" or "health") await ShowLibraryPageAsync(page);
+        }
+        catch (Exception ex) { ShowError(ex); }
+    }
     private void Website_Click(object sender, RoutedEventArgs e) => OpenLocation("https://plutonium-lime.vercel.app/");
     private void OpenLocation(string location)
     {

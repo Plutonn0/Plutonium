@@ -80,11 +80,24 @@ public partial class MainWindow
         SetStage("UPDATING", $"Installing client {release.Version}");
         Progress.Visibility = Visibility.Visible;
         Progress.Value = 0;
-        await _updates.DownloadVerifiedAsync(_fabricSelected ? release.Fabric : release.Standalone,
-            ClientUpdateTarget, new Progress<double>(value => Progress.Value = value * 100), OperationToken);
+        await new UpdateHistory(_config.DataDirectory).CaptureAsync(_fabricSelected ? "Fabric" : "Standalone",
+            _fabricSelected ? _config.FabricClientVersion : _config.StandaloneClientVersion, ClientUpdateTarget, OperationToken);
+        var fromVersion = _fabricSelected ? _config.FabricClientVersion : _config.StandaloneClientVersion;
+        try
+        {
+            await _updates.DownloadVerifiedAsync(_fabricSelected ? release.Fabric : release.Standalone,
+                ClientUpdateTarget, new Progress<double>(value => Progress.Value = value * 100), OperationToken);
+        }
+        catch
+        {
+            await new UpdateHistory(_config.DataDirectory).RecordAsync(_fabricSelected ? "Fabric" : "Standalone", fromVersion, release.Version, "Download failed or cancelled · previous client preserved");
+            throw;
+        }
         if (_fabricSelected) _config.FabricClientVersion = release.Version;
         else _config.StandaloneClientVersion = release.Version;
+        if (_fabricSelected) _config.FabricRollbackHash = ""; else _config.StandaloneRollbackHash = "";
         await _config.SaveAsync();
+        await new UpdateHistory(_config.DataDirectory).RecordAsync(_fabricSelected ? "Fabric" : "Standalone", fromVersion, release.Version, "Installed and verified");
         _clientUpdateNeeded = false;
         ClientUpdateDetail.Text = $"Client {release.Version} installed and verified";
         ClientInstalledVersion.Text = $"{(_fabricSelected ? "Fabric" : "Standalone")} client · {release.Version}";
@@ -109,6 +122,8 @@ public partial class MainWindow
         await _updates.DownloadVerifiedAsync(_launcherRelease.Executable, staged,
             new Progress<double>(value => Progress.Value = value * 100), OperationToken);
         OperationToken.ThrowIfCancellationRequested();
+        await new UpdateHistory(_config.DataDirectory).CaptureAsync("Launcher", CurrentLauncherVersion, Environment.ProcessPath!, OperationToken);
+        await new UpdateHistory(_config.DataDirectory).RecordAsync("Launcher", CurrentLauncherVersion, _launcherRelease.Version, "Verified download · replacement scheduled on exit");
         ScheduleLauncherUpdate(staged);
     }
 

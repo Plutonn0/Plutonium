@@ -38,10 +38,10 @@
                         <Button DockPanel.Dock="Bottom" Content="WEBSITE ↗" Style="{StaticResource QuietButton}" Click="Website_Click" FontSize="10" />
                         <StackPanel x:Name="Navigation">
                             <Button Content="Play" Tag="play" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
+                            <Button Content="Mods" Tag="mods" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
                             <Button Content="Account" Tag="account" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
-                            <Button Content="Installed" Tag="installed" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
                             <Button Content="Files" Tag="files" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
-                            <Button Content="Preferred theme" Tag="theme" Click="Navigate_Click" Style="{StaticResource QuietButton}" FontSize="11" />
+                            <Button Content="Settings" Tag="settings" Click="Navigate_Click" Style="{StaticResource QuietButton}" Margin="0,0,0,8" />
                         </StackPanel>
                     </DockPanel>
                 </Border>
@@ -277,12 +277,21 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="MAX MEMORY (GB)" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource Lato}" FontSize="10" Margin="0,0,0,6" />
-                                <TextBox x:Name="MemoryInput" Text="4" Style="{StaticResource DarkTextBox}" />
+                                <DockPanel>
+                                    <TextBlock Text="MAX MEMORY" Foreground="{StaticResource TextMuted}" FontSize="10" />
+                                    <TextBlock Text="{Binding Value,ElementName=MemoryInput,StringFormat={}{0:0} GB}" HorizontalAlignment="Right" FontSize="10" />
+                                </DockPanel>
+                                <Slider x:Name="MemoryInput" Value="4" Minimum="2" Maximum="32" TickFrequency="1" SmallChange="1" LargeChange="2" Style="{StaticResource DarkSlider}" AutomationProperties.Name="Maximum memory in gigabytes" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="WINDOW SIZE" Foreground="{StaticResource TextMuted}" FontFamily="{StaticResource Lato}" FontSize="10" Margin="0,0,0,6" />
-                                <TextBox x:Name="ResolutionInput" Text="1920x1080" Style="{StaticResource DarkTextBox}" />
+                                <ComboBox x:Name="ResolutionInput" Style="{StaticResource DarkComboBox}" SelectedValuePath="Tag" AutomationProperties.Name="Window resolution">
+                                    <ComboBoxItem Content="1280 × 720" Tag="1280x720" />
+                                    <ComboBoxItem Content="1600 × 900" Tag="1600x900" />
+                                    <ComboBoxItem Content="1920 × 1080" Tag="1920x1080" />
+                                    <ComboBoxItem Content="2560 × 1440" Tag="2560x1440" />
+                                    <ComboBoxItem Content="3840 × 2160" Tag="3840x2160" />
+                                </ComboBox>
                             </StackPanel>
                         </Grid>
                         <CheckBox x:Name="FullscreenInput" Content="Start Minecraft fullscreen" Foreground="{StaticResource TextPrimary}" FontFamily="{StaticResource Lato}" FontSize="12" Margin="0,12,0,0" />

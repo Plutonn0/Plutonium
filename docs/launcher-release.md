@@ -1,4 +1,4 @@
-# Plutonium launcher 1.1.1
+# Plutonium launcher 1.2.0
 
 The Windows x64 executable contains the .NET runtime and both Plutonium client payloads. On first run it installs itself in `%LOCALAPPDATA%\Programs\Plutonium`, adds a Start menu shortcut and registers in Windows Settings → Apps. No administrator access is required. Java 21 is downloaded and verified if no suitable runtime exists. Minecraft libraries and assets are installed when Play is pressed. A Microsoft account that owns Minecraft Java and an internet connection are required for normal play.
 

@@ -99,6 +99,91 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style TargetType="Slider" x:Key="DarkSlider">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="IsMoveToPointEnabled" Value="True" />
+            <Setter Property="IsSnapToTickEnabled" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid Margin="0,0,2,0" Background="Transparent">
+                            <Track x:Name="PART_Track" VerticalAlignment="Center" IsDirectionReversed="False" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" Value="{Binding Value,RelativeSource={RelativeSource TemplatedParent},Mode=TwoWay}">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="3" Background="#E5E5E5" /></ControlTemplate></RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="12" Height="18">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border x:Name="Handle" Background="#E8E8E8" BorderBrush="#FFFFFF" BorderThickness="1" />
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Handle" Property="Background" Value="White" /></Trigger>
+                                                    <Trigger Property="IsDragging" Value="True"><Setter TargetName="Handle" Property="Background" Value="#999999" /></Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge" Focusable="False">
+                                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="3" Background="#363636" /></ControlTemplate></RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                        <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger></ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ComboBox" x:Key="DarkComboBox">
+            <Setter Property="Foreground" Value="#EEEEEE" />
+            <Setter Property="Background" Value="#181818" />
+            <Setter Property="BorderBrush" Value="#333333" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Focusable="False" IsChecked="{Binding IsDropDownOpen,Mode=TwoWay,RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="#181818" BorderBrush="#444444" BorderThickness="1">
+                                            <TextBlock Text="⌄" Foreground="#BBBBBB" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" Margin="10,9,28,9" IsHitTestVisible="False" VerticalAlignment="Center" />
+                            <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
+                                <Border Background="#181818" BorderBrush="#555555" BorderThickness="1" MinWidth="{Binding ActualWidth,RelativeSource={RelativeSource TemplatedParent}}">
+                                    <ScrollViewer MaxHeight="300"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" /></ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="#EEEEEE" />
+                        <Setter Property="Padding" Value="10,8" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="Surface" Background="#181818" Padding="{TemplateBinding Padding}"><ContentPresenter /></Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Surface" Property="Background" Value="#383838" /></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="TextBox" x:Key="DarkTextBox">
             <Setter Property="Foreground" Value="#EEEEEE" />
             <Setter Property="Background" Value="#090909" />

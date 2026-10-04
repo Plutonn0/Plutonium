@@ -12,6 +12,7 @@ public sealed record UpdateCheckResult(bool Configured, bool Available, string? 
 
 public sealed class UpdateService(HttpClient? httpClient = null)
 {
+    public DownloadManager? Downloads { get; set; }
     private readonly HttpClient _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -45,6 +46,12 @@ public sealed class UpdateService(HttpClient? httpClient = null)
         CancellationToken cancellationToken = default)
     {
         ValidateAsset(asset);
+        if (Downloads is not null)
+        {
+            await Downloads.DownloadAsync(Path.GetFileName(targetPath), asset.Url, targetPath, asset.Sha256,
+                HashAlgorithmName.SHA256, cancellationToken, progress);
+            return;
+        }
         var uri = new Uri(asset.Url, UriKind.Absolute);
         var directory = Path.GetDirectoryName(targetPath)!;
         Directory.CreateDirectory(directory);

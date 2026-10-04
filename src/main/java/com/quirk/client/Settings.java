@@ -85,7 +85,8 @@ public final class Settings {
             slider("speed", "Speed", 16, 1, 80, 0.5, " m/s"), slider("vertical", "Vertical speed", 12, 1, 60, 0.5, " m/s")),
         new Module("fastplace", "Fast Place", "MOVEMENT", "Remove the vanilla delay while placing blocks", false),
         new Module("fly", "Fly", "MOVEMENT", "Flight in singleplayer or when the server grants flight", false).add(slider("speed", "Flight speed", 1, .2, 3, .1, "x")),
-        new Module("elytraglide", "Elytra Glide", "MOVEMENT", "Stabilize pitch during an existing elytra flight", false).add(slider("pitch", "Glide pitch", -5, -30, 15, 1, " deg")),
+        new Module("elytraglide", "Elytra Glide", "MOVEMENT", "Maintain flight momentum without rockets; steer by looking", false).add(
+            slider("speed", "Flight speed", 1.2, .2, 3, .1, " b/t"), slider("acceleration", "Acceleration", .08, .01, .3, .01, " b/t")),
         new Module("inventorymove", "Inventory Move", "MOVEMENT", "Use movement keys in your inventory, except while typing", false),
         new Module("autoclutch", "Auto Clutch", "MOVEMENT", "Use a suitable hotbar item to break a dangerous fall", false).add(
             slider("fall", "Fall distance", 3, 1, 8, 0.5, " m")),

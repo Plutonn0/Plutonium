@@ -24,14 +24,36 @@ public sealed class MinecraftLaunchService
     private const string GameVersion = "1.21.11";
     private const string StandaloneVersion = "plutonium-1.21.11";
     private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromMinutes(10) };
+    public DownloadManager? Downloads { get; set; }
     public async Task<Process> PrepareAndLaunchAsync(
+        LauncherConfig config, JavaRuntime java, MSession session, bool fabric,
+        IProgress<string>? progress = null, IProgress<double>? byteProgress = null,
+        CancellationToken cancellationToken = default, string? serverAddress = null)
+    {
+        var item = new DownloadItem("Minecraft 1.21.11 · assets, libraries and loader") { CanPause = false };
+        Downloads?.Items.Insert(0, item);
+        var finished = false;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, item.Cancellation.Token);
+        try
+        {
+            var process = await PrepareCoreAsync(config, java, session, fabric,
+                new Progress<string>(value => { progress?.Report(value); if (!finished) item.Update("Downloading", value, item.Percent); }),
+                new Progress<double>(value => { byteProgress?.Report(value); if (!finished) item.Update("Downloading", item.Detail, value * 100); }), linked.Token, serverAddress);
+            item.Update("Complete", "Minecraft files checked and game started", 100); return process;
+        }
+        catch (OperationCanceledException) { item.Update("Cancelled", "Preparation cancelled. Play will resume missing files.", item.Percent); throw; }
+        catch (Exception ex) { item.Update("Failed", ErrorReport.Redact(ex.Message), item.Percent); throw; }
+        finally { finished = true; }
+    }
+    private async Task<Process> PrepareCoreAsync(
         LauncherConfig config,
         JavaRuntime java,
         MSession session,
         bool fabric,
         IProgress<string>? progress = null,
         IProgress<double>? byteProgress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? serverAddress = null)
     {
         var gameDirectory = fabric ? config.MinecraftDirectory : config.StandaloneGameDirectory;
         var path = new MinecraftPath(gameDirectory);
@@ -65,6 +87,13 @@ public sealed class MinecraftLaunchService
             FullScreen = config.Fullscreen
         };
         var process = await launcher.InstallAndBuildProcessAsync(version, launchOptions, cancellationToken);
+        if (!string.IsNullOrEmpty(serverAddress))
+        {
+            var address = ServerFavorite.Create("Server", serverAddress).Address;
+            if (process.StartInfo.ArgumentList.Count > 0)
+            { process.StartInfo.ArgumentList.Add("--quickPlayMultiplayer"); process.StartInfo.ArgumentList.Add(address); }
+            else process.StartInfo.Arguments += " --quickPlayMultiplayer \"" + address + "\"";
+        }
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report("Launching Minecraft");
         _recentOutput.Clear();
