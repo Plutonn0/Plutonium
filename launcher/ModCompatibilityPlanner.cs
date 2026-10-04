@@ -12,6 +12,11 @@ public sealed class ModCompatibilityPlanner(ModrinthService service, DownloadMan
 
     public async Task<CompatibleModPlan> ResolveAsync(string gameDirectory, string project, string title, bool previews, CancellationToken token)
     {
+        // Check the requested release channel before inspecting unrelated installed jars.
+        var rootVersions = await service.VersionsAsync(project, token);
+        var rootCandidates = Candidates(rootVersions, previews);
+        if (rootCandidates.Count == 0) throw new InvalidDataException(NoCandidates(title, rootVersions, previews));
+        project = rootCandidates[0].ProjectId;
         var directory = Path.Combine(gameDirectory, "mods"); var local = new List<LocalMod>();
         var files = new List<(string Path, string Hash, List<FabricMetadata> Metadata)>();
         if (Directory.Exists(directory))
@@ -65,7 +70,8 @@ public sealed class ModCompatibilityPlanner(ModrinthService service, DownloadMan
             if (ApiConflict(remaining.Where(l => l.Version is not null).Select(l => l.Version!).Concat(chosen.Values))) return false;
             var additions = new List<FabricMetadata>();
             foreach (var version in chosen.Values) additions.AddRange(await Inspect(version));
-            if (additions.Count == 0) return false;
+            if (additions.Count == 0)
+            { reasons.Add("The selected files contain no client-side Fabric mod metadata."); return false; }
             var changed = additions.SelectMany(m => m.Ids).ToHashSet();
             var all = remaining.SelectMany(l => l.Metadata).Concat(additions).ToList();
             foreach (var candidate in additions)
@@ -98,20 +104,31 @@ public sealed class ModCompatibilityPlanner(ModrinthService service, DownloadMan
             if (chosen.Count > 64) throw new InvalidDataException("Dependency tree exceeds 64 projects.");
             var need = pending[0]; var rest = pending.Skip(1).ToList();
             if (chosen.TryGetValue(need.Project, out var prior))
-                return need.Exact is null || need.Exact == prior.Id ? await Search(rest, chosen) : null;
+            {
+                if (need.Exact is null || need.Exact == prior.Id) return await Search(rest, chosen);
+                reasons.Add($"{need.Title} requires version ID {need.Exact}, but another dependency requires {prior.VersionNumber} ({prior.Id}).");
+                return null;
+            }
             List<ModVersion> candidates;
             if (need.Exact is not null) candidates = [await service.VersionAsync(need.Exact, token)];
             else
             {
                 if (!versions.TryGetValue(need.Project, out candidates!))
-                    versions[need.Project] = candidates = (await service.VersionsAsync(need.Project, token)).Where(v => ModrinthService.Compatible(v) && (previews || v.VersionType == "release")).OrderByDescending(v => v.DatePublished).Take(50).ToList();
+                {
+                    var available = await service.VersionsAsync(need.Project, token);
+                    versions[need.Project] = candidates = Candidates(available, previews);
+                    if (candidates.Count == 0) reasons.Add(NoCandidates(need.Title, available, previews));
+                }
                 // Keep existing dependencies when possible; the requested mod still prefers newest.
                 var installed = local.FirstOrDefault(l => l.Version?.ProjectId == need.Project)?.Version;
                 if (need.Project != project && installed is not null) candidates = candidates.Prepend(installed).DistinctBy(v => v.Id).ToList();
             }
-            foreach (var candidate in candidates.Where(ModrinthService.Compatible))
+            foreach (var candidate in candidates)
             {
-                if (need.Exact is not null && candidate.ProjectId != need.Project) continue;
+                if (!ModrinthService.Compatible(candidate))
+                { reasons.Add($"{candidate.Name} does not support Fabric {ModrinthService.MinecraftVersion}."); continue; }
+                if (need.Exact is not null && candidate.ProjectId != need.Project)
+                { reasons.Add($"Required version {need.Exact} belongs to a different project than {need.Title}."); continue; }
                 var next = new Dictionary<string, ModVersion>(chosen) { [candidate.ProjectId] = candidate };
                 var required = new List<Requirement>();
                 foreach (var dependency in candidate.Dependencies.Where(d => d.DependencyType == "required"))
@@ -128,13 +145,10 @@ public sealed class ModCompatibilityPlanner(ModrinthService service, DownloadMan
         }
         try
         {
-            // Normalize slugs to project IDs so cycles and installed versions use the same keys.
-            var rootVersions = await service.VersionsAsync(project, token);
-            if (rootVersions.Count == 0) throw new InvalidDataException("No Fabric 1.21.11 version is available.");
-            project = rootVersions[0].ProjectId;
-            versions[project] = rootVersions.Where(v => ModrinthService.Compatible(v) && (previews || v.VersionType == "release")).OrderByDescending(v => v.DatePublished).Take(50).ToList();
+            versions[project] = rootCandidates;
             var solution = await Search([new(project, null, title)], []);
-            if (solution is null) throw new InvalidDataException("No compatible combination found within the checked releases. Your mods have not been changed.\n" + string.Join("\n", reasons.Take(5)));
+            if (solution is null) throw new InvalidDataException($"Could not find a compatible installation for {title} (Fabric {ModrinthService.MinecraftVersion}). Your mods have not been changed.\n" +
+                (reasons.Count > 0 ? string.Join("\n", reasons.Take(5)) : "The dependency search exhausted the checked versions. Include this mod's name when reporting the issue."));
             var entries = solution.Values.Reverse().Select(v => new ModPlanEntry(v.ProjectId == project ? title : v.Name, v, ModrinthService.SelectFile(v))).ToList();
             var notes = reasons.Count > 0 ? new List<string> { "Selected an alternative version to satisfy the installed mods' requirements." } : new List<string>();
             notes.Add("Checked declared Fabric dependencies and incompatibilities. Undeclared runtime conflicts can still occur.");
@@ -144,5 +158,17 @@ public sealed class ModCompatibilityPlanner(ModrinthService service, DownloadMan
         {
             if (temporary.StartsWith(Path.GetFullPath(Path.GetTempPath()), StringComparison.OrdinalIgnoreCase)) Directory.Delete(temporary, true);
         }
+    }
+
+    private static List<ModVersion> Candidates(IEnumerable<ModVersion> versions, bool previews) => versions
+        .Where(v => ModrinthService.Compatible(v) && (previews || v.VersionType == "release"))
+        .OrderByDescending(v => v.DatePublished).Take(50).ToList();
+
+    private static string NoCandidates(string title, IEnumerable<ModVersion> versions, bool previews)
+    {
+        var compatible = versions.Where(ModrinthService.Compatible).ToList();
+        if (!previews && compatible.Any(v => v.VersionType is "beta" or "alpha"))
+            return $"{title} only has beta/alpha versions for Fabric {ModrinthService.MinecraftVersion}. Enable 'Include beta / alpha' in Mods and retry. Your mods have not been changed.";
+        return $"{title} has no available {(previews ? "" : "stable ")}version for Fabric {ModrinthService.MinecraftVersion}. Your mods have not been changed.";
     }
 }

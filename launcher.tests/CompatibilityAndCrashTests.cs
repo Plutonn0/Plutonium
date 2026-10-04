@@ -42,6 +42,70 @@ public sealed class CompatibilityAndCrashTests : IDisposable
     { Directory.CreateDirectory(Path.Combine(_root, "mods")); await File.WriteAllBytesAsync(Path.Combine(_root, "mods", version + ".jar"), _fixtures[version].Jar); }
 
     [Fact]
+    public async Task PreviewOnlyModExplainsHowToEnableItsReleaseChannel()
+    {
+        var beta = Add("intro", "intro-beta", "2.1", 1) with { VersionType = "beta" };
+        _fixtures[beta.Id] = (beta, _fixtures[beta.Id].Jar);
+        var (api, downloads) = Services(); var planner = new ModCompatibilityPlanner(api, downloads);
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => planner.ResolveAsync(_root, "intro", "Reimagined Intro", false, default));
+        Assert.Contains("Reimagined Intro only has beta/alpha versions", error.Message);
+        Assert.Contains("Include beta / alpha", error.Message); Assert.Empty(downloads.Items);
+        var plan = await planner.ResolveAsync(_root, "intro", "Reimagined Intro", true, default);
+        Assert.Equal(beta.Id, Assert.Single(plan.Entries).Version.Id);
+    }
+    [Fact]
+    public async Task MissingDependencyCandidateHasAnActionableReason()
+    {
+        Add("intro", "intro", "1", 1, dependencies: [new("unavailable", null, "required")]);
+        var (api, downloads) = Services();
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => new ModCompatibilityPlanner(api, downloads).ResolveAsync(_root, "intro", "Intro", false, default));
+        Assert.Contains("unavailable has no available stable version", error.Message);
+    }
+    [Fact]
+    public async Task ConflictingExactDependenciesExplainBothVersions()
+    {
+        Add("api", "api1", "1", 2); Add("api", "api2", "2", 1);
+        Add("addon", "addon", "1", 1, dependencies: [new("api", "api2", "required")]);
+        Add("intro", "intro", "1", 1, dependencies: [new("api", "api1", "required"), new("addon", null, "required")]);
+        var (api, downloads) = Services();
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => new ModCompatibilityPlanner(api, downloads).ResolveAsync(_root, "intro", "Intro", false, default));
+        Assert.Contains("api2", error.Message); Assert.Contains("api1", error.Message);
+    }
+    [Fact]
+    public async Task UninstallLocalModKeepsRecoverableFile()
+    {
+        Add("local", "local", "1", 1); await InstallFixture("local");
+        var library = new ModLibrary(_root, new()); var path = Path.Combine(library.DirectoryPath, "local.jar");
+        await library.UninstallFileAsync(path);
+        Assert.False(File.Exists(path));
+        Assert.Equal(_fixtures["local"].Jar, await File.ReadAllBytesAsync(Assert.Single(Directory.GetFiles(Path.Combine(library.DirectoryPath, ".removed")))));
+    }
+    [Fact]
+    public async Task LocalDependencyAndBundledClientCannotBeUninstalled()
+    {
+        Add("api", "api", "1", 1); Add("addon", "addon", "1", 1, new() { ["api"] = [">=1"] }); Add("plutonium", "renamed-client", "1", 1);
+        await InstallFixture("api"); await InstallFixture("addon"); await InstallFixture("renamed-client");
+        var library = new ModLibrary(_root, new());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => library.UninstallFileAsync(Path.Combine(library.DirectoryPath, "api.jar")));
+        Assert.Contains("required by addon", error.Message);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => library.UninstallFileAsync(Path.Combine(library.DirectoryPath, "renamed-client.jar")));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => library.UninstallFileAsync(Path.Combine(_root, "outside.jar")));
+        Assert.Equal(3, Directory.GetFiles(library.DirectoryPath).Length);
+    }
+
+    [LibraryTests.LiveModrinthFact]
+    public async Task LiveReimaginedIntroReportsPreviewChannelAndResolvesWithOptIn()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(4));
+        var planner = new ModCompatibilityPlanner(new(), new());
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => planner.ResolveAsync(_root, "reimagined-intro", "Reimagined Intro", false, timeout.Token));
+        Assert.Contains("Include beta / alpha", error.Message);
+        var plan = await planner.ResolveAsync(_root, "reimagined-intro", "Reimagined Intro", true, timeout.Token);
+        Assert.Contains(plan.Entries, e => e.Version.ProjectId == "BsnF5g7E");
+        Assert.True(plan.Entries.Count > 1);
+    }
+
+    [Fact]
     public async Task SelectsOlderReleaseToRespectInstalledFabricRange()
     {
         Add("renderer", "renderer1", "1.0", 4); Add("renderer", "renderer2", "2.0", 1);

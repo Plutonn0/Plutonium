@@ -206,4 +206,48 @@ public sealed class ModLibrary(string gameDirectory, DownloadManager downloads, 
         try { mods.Remove(mod); if (!remove) mods.Add(changed); await SaveAsync(mods); }
         catch { if (moved) File.Move(target, original); throw; }
     }
+
+    public static bool IsBundledClient(string path)
+    {
+        var name = Path.GetFileName(path).Replace(".disabled", "", StringComparison.OrdinalIgnoreCase).ToLowerInvariant();
+        if (name is "plutonium-client-fabric.jar" or "quirk-client-fabric.jar") return true;
+        try { return ReadModIds(path).Any(id => id is "quirk" or "plutonium"); }
+        catch (InvalidDataException) { return false; }
+        catch (System.Text.Json.JsonException) { return false; }
+        catch (IOException) { return false; }
+    }
+
+    public async Task UninstallFileAsync(string path)
+    {
+        path = Path.GetFullPath(path);
+        if (!string.Equals(Path.GetDirectoryName(path), DirectoryPath, StringComparison.OrdinalIgnoreCase)
+            || !(path.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Only a mod file inside this profile's mods folder can be uninstalled.");
+        if (IsBundledClient(path)) throw new InvalidOperationException("The bundled Plutonium client is managed by the launcher and cannot be uninstalled here.");
+        var managed = (await LoadAsync()).FirstOrDefault(m => PathFor(m).Equals(path, StringComparison.OrdinalIgnoreCase));
+        if (!File.Exists(path))
+        {
+            if (managed is not null) { await ChangeAsync(managed.ProjectId, true); return; }
+            throw new FileNotFoundException("This mod has already been removed. Refresh Your Mods.");
+        }
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new IOException("This mod is a linked file. Manage the link in the Files tab.");
+        List<FabricMetadata> ReadMetadata(string file)
+        {
+            try { return FabricMetadata.Read(file); }
+            catch (InvalidDataException) { return []; }
+            catch (System.Text.Json.JsonException) { return []; }
+        }
+        if (path.EndsWith(".jar", StringComparison.OrdinalIgnoreCase))
+        {
+            var removed = ReadMetadata(path); var removedIds = removed.SelectMany(m => m.Ids).ToHashSet();
+            var remaining = Directory.EnumerateFiles(DirectoryPath, "*.jar").Where(f => !f.Equals(path, StringComparison.OrdinalIgnoreCase)).SelectMany(ReadMetadata).ToList();
+            foreach (var owner in remaining)
+                foreach (var rule in owner.Depends.Where(r => removedIds.Contains(r.Key)))
+                    if (!remaining.Any(m => m.Ids.Contains(rule.Key) && FabricVersionRange.Matches(m.Version, rule.Value)))
+                        throw new InvalidOperationException($"{Path.GetFileName(path)} is required by {owner.Id}. Uninstall or disable {owner.Id} first.");
+        }
+        if (managed is not null) { await ChangeAsync(managed.ProjectId, true); return; }
+        var recovery = Path.Combine(DirectoryPath, ".removed"); Directory.CreateDirectory(recovery);
+        File.Move(path, Path.Combine(recovery, Guid.NewGuid().ToString("N") + "-" + Path.GetFileName(path)));
+    }
 }

@@ -23,6 +23,8 @@ public partial class MainWindow
     private StackPanel _modResults = null!, _modDetails = null!;
     private TextBlock _modStatus = null!;
     private Button _modPrevious = null!, _modNext = null!;
+    private Button _browseModsTab = null!, _yourModsTab = null!;
+    private StackPanel _modBrowseControls = null!;
     private CancellationTokenSource? _modSearch;
     private CancellationTokenSource? _modPlan;
     private int _modOffset;
@@ -59,6 +61,13 @@ public partial class MainWindow
         button.Click += async (_, _) => { if (running) return; running = true; button.IsHitTestVisible = false; try { await action(); } catch (OperationCanceledException) { } catch (Exception ex) { ShowError(ex); } finally { running = false; button.IsHitTestVisible = true; } };
         return button;
     }
+    private Button UninstallButton(Func<Task> action)
+    {
+        var button = ActionButton("UNINSTALL", action);
+        button.Style = (Style)FindResource("DangerButton");
+        button.ToolTip = "Uninstall this mod. Its file is kept in mods/.removed for recovery.";
+        return button;
+    }
     private static ScrollViewer Scroll(UIElement content) => new() { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 12, 0) };
     private Border Card(UIElement content)
     {
@@ -84,15 +93,19 @@ public partial class MainWindow
         Grid.SetColumn(_modsPage, 1); Grid.SetColumn(_libraryPage, 1); shell.Children.Add(_modsPage); shell.Children.Add(_libraryPage);
         _modsPage.RowDefinitions.Add(new() { Height = GridLength.Auto }); _modsPage.RowDefinitions.Add(new()); _modsPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
         var header = new StackPanel(); header.Children.Add(Label("Mods", 28)); header.Children.Add(Label("Discover on Modrinth · Minecraft 1.21.11 / Fabric · installs to your Fabric profile", 11, true));
-        header.Children.Add(Label("SEARCH MODS BY NAME", 10, true));
+        var tabs = new WrapPanel();
+        _browseModsTab = ActionButton("BROWSE", async () => { _modOffset = 0; await SearchModsAsync(); });
+        _yourModsTab = ActionButton("YOUR MODS", ShowInstalledModsAsync);
+        tabs.Children.Add(_browseModsTab); tabs.Children.Add(_yourModsTab); header.Children.Add(tabs);
+        _modBrowseControls = new(); header.Children.Add(_modBrowseControls);
+        _modBrowseControls.Children.Add(Label("SEARCH MODS BY NAME", 10, true));
         var toolbar = new WrapPanel(); _modQuery = Input("", "Search Modrinth mods"); _modQuery.Width = 260;
         System.Windows.Automation.AutomationProperties.SetName(_modQuery, "Search mods");
         toolbar.Children.Add(_modQuery); toolbar.Children.Add(ActionButton("SEARCH", async () => { _installedMods = false; _modOffset = 0; await SearchModsAsync(); }));
-        toolbar.Children.Add(ActionButton("INSTALLED", ShowInstalledModsAsync));
-        header.Children.Add(toolbar);
+        _modBrowseControls.Children.Add(toolbar);
         var filters = new WrapPanel(); _modSort = Choices("Relevance", "Downloads", "Newest", "Updated"); _modCategory = Choices("All categories", "Optimization", "Utility", "Worldgen", "Adventure", "Decoration", "Technology");
         _modPreviews = new CheckBox { Content = "Include beta / alpha", Foreground = Brushes.LightGray, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 10) };
-        filters.Children.Add(_modSort); filters.Children.Add(_modCategory); filters.Children.Add(_modPreviews); header.Children.Add(filters);
+        filters.Children.Add(_modSort); filters.Children.Add(_modCategory); filters.Children.Add(_modPreviews); _modBrowseControls.Children.Add(filters);
         _modHeader = header; _modsPage.Children.Add(header);
         _modResults = new(); _modDetails = new();
         _modResultsScroll = Scroll(_modResults); Grid.SetRow(_modResultsScroll, 1); _modsPage.Children.Add(_modResultsScroll);
@@ -108,6 +121,7 @@ public partial class MainWindow
     }
     private async Task SearchModsAsync(bool debounce = false)
     {
+        _installedMods = false;
         _modSearch?.Cancel(); _modSearch = new(); var token = _modSearch.Token;
         try
         {
@@ -152,6 +166,10 @@ public partial class MainWindow
         _modPlan?.Cancel();
         _modHeader.Visibility = _modFooter.Visibility = _modResultsScroll.Visibility = Visibility.Visible;
         _modDetailsScroll.Visibility = Visibility.Collapsed;
+        _modBrowseControls.Visibility = _installedMods ? Visibility.Collapsed : Visibility.Visible;
+        _browseModsTab.BorderBrush = _installedMods ? Brushes.DimGray : Brushes.White;
+        _yourModsTab.BorderBrush = _installedMods ? Brushes.White : Brushes.DimGray;
+        _modPrevious.Visibility = _modNext.Visibility = _installedMods ? Visibility.Collapsed : Visibility.Visible;
     }
     private async Task InstallBrowserModAsync(ModProject mod) => await MutateLibraryAsync(async () =>
     {
@@ -227,38 +245,51 @@ public partial class MainWindow
     private async Task ShowInstalledModsAsync()
     {
         if (_config is null) return;
-        ShowModBrowser();
-        _installedMods = true; _modSearch?.Cancel(); _modResults.Children.Clear(); _modNext.IsEnabled = _modPrevious.IsEnabled = false;
+        _installedMods = true; ShowModBrowser();
+        _modSearch?.Cancel(); _modSearch = new(); var token = _modSearch.Token;
+        _modResults.Children.Clear(); _modNext.IsEnabled = _modPrevious.IsEnabled = false;
+        _modStatus.Text = "Reading your installed mods…";
         var library = new ModLibrary(_config.MinecraftDirectory, _downloads); var installed = await library.LoadAsync();
-        var detected = await (_modDetection ??= new(_modrinth)).ScanAsync(_config.MinecraftDirectory, default);
-        _modStatus.Text = $"{installed.Count} managed mods · Fabric 1.21.11";
-        _modResults.Children.Add(ActionButton("BROWSE MODS", async () => { _installedMods = false; _modOffset = 0; await SearchModsAsync(); }));
+        ModDetectionResult detected;
+        try { detected = await (_modDetection ??= new(_modrinth)).ScanAsync(_config.MinecraftDirectory, token); }
+        catch (OperationCanceledException) { return; }
+        if (token.IsCancellationRequested) return;
+        _modResults.Children.Add(Label("Your Mods", 22));
+        _modResults.Children.Add(Label("Enabled and disabled mods in your Fabric profile. Uninstalled jars are saved in mods/.removed; shared dependencies are protected.", 11, true));
+        _modResults.Children.Add(ActionButton("REFRESH", ShowInstalledModsAsync));
+        if (detected.Warning is not null) _modResults.Children.Add(Label(detected.Warning, 11, true));
+        var count = 0;
         foreach (var mod in installed.OrderBy(m => m.Title))
         {
+            count++;
             var body = new StackPanel(); body.Children.Add(Label(mod.Title, 16)); body.Children.Add(Label($"{mod.Version} · {(File.Exists(library.PathFor(mod)) ? mod.Enabled ? "Enabled" : "Disabled" : "File missing")}", 11, true));
             var actions = new WrapPanel();
             actions.Children.Add(ActionButton(mod.Enabled ? "DISABLE" : "ENABLE", () => MutateLibraryAsync(async () => { await library.ChangeAsync(mod.ProjectId, false); await ShowInstalledModsAsync(); })));
             actions.Children.Add(ActionButton("CHECK UPDATE", () => ShowModAsync(new(mod.ProjectId, mod.ProjectId, mod.Title, "Choose Install / Update to install the latest compatible version and its required dependencies.", "", 0, null, "optional"))));
-            actions.Children.Add(ActionButton("REMOVE", () => MutateLibraryAsync(async () => { await library.ChangeAsync(mod.ProjectId, true); await ShowInstalledModsAsync(); })));
+            actions.Children.Add(UninstallButton(() => MutateLibraryAsync(async () => { await library.UninstallFileAsync(library.PathFor(mod)); await ShowInstalledModsAsync(); })));
             body.Children.Add(actions); _modResults.Children.Add(Card(body));
         }
         var managedPaths = installed.Select(library.PathFor).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (Directory.Exists(library.DirectoryPath))
             foreach (var path in Directory.EnumerateFiles(library.DirectoryPath).Where(p => (p.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase)) && !managedPaths.Contains(p)))
             {
+                count++;
                 var local = detected.Mods.FirstOrDefault(m => m.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
                 var body = new StackPanel(); var heading = new DockPanel();
+                var actions = new WrapPanel();
                 if (local is not null)
                 {
-                    var actions = new WrapPanel(); var installedButton = ActionButton("INSTALLED", () => Task.CompletedTask); installedButton.IsEnabled = false; actions.Children.Add(installedButton);
                     actions.Children.Add(ActionButton("VIEW", () => ShowModAsync(new(local.ProjectId, local.ProjectId, local.Title, "Detected from your existing mod file.", "", 0, null, "optional"))));
-                    DockPanel.SetDock(actions, Dock.Right); heading.Children.Add(actions);
                 }
+                var bundled = ModLibrary.IsBundledClient(path);
+                if (!bundled) actions.Children.Add(UninstallButton(() => MutateLibraryAsync(async () => { await library.UninstallFileAsync(path); await ShowInstalledModsAsync(); })));
+                DockPanel.SetDock(actions, Dock.Right); heading.Children.Add(actions);
                 heading.Children.Add(Label(local?.Title ?? Path.GetFileName(path), 15)); body.Children.Add(heading);
-                body.Children.Add(Label(local is null ? "Local / bundled mod · not identified by Modrinth" : local.Version + (local.Enabled ? " · Enabled" : " · Disabled"), 11, true));
+                body.Children.Add(Label(bundled ? "Bundled client · managed through launcher updates" : local is null ? "Local mod · " + (path.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase) ? "Disabled" : "Enabled") : local.Version + (local.Enabled ? " · Enabled" : " · Disabled"), 11, true));
                 body.Children.Add(Label(Path.GetFileName(path), 10, true)); _modResults.Children.Add(Card(body));
             }
-        if (installed.Count == 0) _modResults.Children.Add(Label("Your Modrinth library is empty. Browse mods to add your first one.", 13, true));
+        _modStatus.Text = $"{count} mod files · Fabric profile";
+        if (count == 0) _modResults.Children.Add(Label("No installed mods found. Open Browse to add a mod.", 13, true));
     }
     private async Task ShowLibraryPageAsync(string page)
     {
