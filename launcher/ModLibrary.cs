@@ -8,7 +8,7 @@ namespace PlutoniumLauncher;
 public sealed record InstalledMod(string ProjectId, string Title, string VersionId, string Version, string Filename,
     string Sha512, bool Enabled, List<ModDependency> Dependencies, List<string> ModIds);
 
-public sealed class ModLibrary(string gameDirectory, DownloadManager downloads)
+public sealed class ModLibrary(string gameDirectory, DownloadManager downloads, ModrinthService? modrinth = null)
 {
     public string DirectoryPath { get; } = Path.Combine(Path.GetFullPath(gameDirectory), "mods");
     private string IndexPath => Path.Combine(DirectoryPath, ".plutonium-mods.json");
@@ -42,13 +42,44 @@ public sealed class ModLibrary(string gameDirectory, DownloadManager downloads)
         using var stream = metadata.Open(); using var json = JsonDocument.Parse(stream);
         var ids = new List<string> { json.RootElement.GetProperty("id").GetString() ?? throw new InvalidDataException("Missing mod ID.") };
         if (json.RootElement.TryGetProperty("provides", out var provides)) ids.AddRange(provides.EnumerateArray().Select(v => v.GetString()!).Where(v => v is not null));
-        return ids;
+        return ids.Distinct(StringComparer.Ordinal).ToList();
     }
     public async Task InstallAsync(List<ModPlanEntry> plan, CancellationToken token)
     {
         Directory.CreateDirectory(DirectoryPath);
         var existing = await LoadAsync();
         var preservedProjects = new HashSet<string>();
+        var adoptedProjects = new HashSet<string>();
+        // Identify local versions by verified content, never by filename or mod ID alone.
+        if (modrinth is not null)
+        {
+            var local = new List<(string Path, string Hash)>();
+            foreach (var path in Directory.EnumerateFiles(DirectoryPath, "*.jar"))
+            {
+                if (existing.Any(m => PathFor(m).Equals(path, StringComparison.OrdinalIgnoreCase))) continue;
+                await using var stream = File.OpenRead(path);
+                local.Add((path, Convert.ToHexString(await SHA512.HashDataAsync(stream, token)).ToLowerInvariant()));
+            }
+            foreach (var batch in local.Chunk(100))
+            {
+                var identified = await modrinth.IdentifyAsync(batch.Select(f => f.Hash).Distinct(), token);
+                foreach (var (path, hash) in batch)
+                {
+                    if (!identified.TryGetValue(hash, out var version)) continue;
+                    if (!version.Files.Any(f => f.Hashes.TryGetValue("sha512", out var actual) && actual.Equals(hash, StringComparison.OrdinalIgnoreCase)))
+                        throw new InvalidDataException("Modrinth returned a mismatched file identity.");
+                    var localIds = ReadModIds(path);
+                    if (localIds.Any(id => id is "quirk" or "plutonium")) continue;
+                    if (existing.Any(m => m.ProjectId == version.ProjectId && File.Exists(PathFor(m))))
+                        throw new InvalidDataException("Multiple local copies of " + version.Name + " are installed. Remove the extra copy before installing mods.");
+                    existing.RemoveAll(m => m.ProjectId == version.ProjectId);
+                    existing.Add(new(version.ProjectId, version.Name, version.Id, version.VersionNumber, Path.GetFileName(path), hash, true, version.Dependencies, localIds));
+                    adoptedProjects.Add(version.ProjectId);
+                    if (plan.Any(p => p.Version.ProjectId == version.ProjectId && p.File.Hashes["sha512"].Equals(hash, StringComparison.OrdinalIgnoreCase)))
+                        preservedProjects.Add(version.ProjectId);
+                }
+            }
+        }
         // Reuse already-installed local dependency files when their exact bytes match the plan.
         foreach (var path in Directory.EnumerateFiles(DirectoryPath, "*.jar"))
         {
@@ -70,7 +101,7 @@ public sealed class ModLibrary(string gameDirectory, DownloadManager downloads)
                     ((dependency.ProjectId == m.ProjectId && dependency.VersionId is null) || dependency.VersionId == m.VersionId)))
                     throw new InvalidDataException(entry.Title + " conflicts with an installed mod.");
         }
-        foreach (var mod in existing.Where(m => !proposed.Contains(m.ProjectId)))
+        foreach (var mod in existing.Where(m => m.Enabled && File.Exists(PathFor(m)) && !proposed.Contains(m.ProjectId)))
             foreach (var dependency in mod.Dependencies)
             {
                 var dependencyProject = dependency.ProjectId ?? existing.FirstOrDefault(m => m.VersionId == dependency.VersionId)?.ProjectId;
@@ -114,7 +145,7 @@ public sealed class ModLibrary(string gameDirectory, DownloadManager downloads)
                 var path = PathFor(old);
                 if (!File.Exists(path)) continue;
                 await using (var stream = File.OpenRead(path))
-                    if (!Convert.ToHexString(await SHA512.HashDataAsync(stream)).Equals(old.Sha512, StringComparison.OrdinalIgnoreCase))
+                    if (adoptedProjects.Contains(old.ProjectId) || !Convert.ToHexString(await SHA512.HashDataAsync(stream)).Equals(old.Sha512, StringComparison.OrdinalIgnoreCase))
                     {
                         var recovery = Path.Combine(DirectoryPath, ".replaced"); Directory.CreateDirectory(recovery);
                         File.Copy(path, Path.Combine(recovery, Guid.NewGuid().ToString("N") + "-" + old.Filename));
@@ -123,7 +154,7 @@ public sealed class ModLibrary(string gameDirectory, DownloadManager downloads)
                 File.Move(path, backup); rollback.Add((path, backup));
             }
             foreach (var add in additions) { var path = PathFor(add); File.Move(Path.Combine(stage, add.Filename), path); created.Add(path); }
-            await SaveAsync(existing.Where(m => !proposed.Contains(m.ProjectId) || preservedProjects.Contains(m.ProjectId)).Concat(additions).ToList());
+            await SaveAsync(existing.Where(m => (!adoptedProjects.Contains(m.ProjectId) && !proposed.Contains(m.ProjectId)) || preservedProjects.Contains(m.ProjectId)).Concat(additions).ToList());
         }
         catch
         {

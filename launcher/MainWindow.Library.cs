@@ -141,7 +141,7 @@ public partial class MainWindow
     });
     private async Task InstallModPlanAsync(List<ModPlanEntry> plan)
     {
-        await new ModLibrary(_config!.MinecraftDirectory, _downloads).InstallAsync(plan, OperationToken);
+        await new ModLibrary(_config!.MinecraftDirectory, _downloads, _modrinth).InstallAsync(plan, OperationToken);
         SelectProfile(true, false); _config.SelectedProfile = "fabric"; await _config.SaveAsync();
     }
     private async Task ShowModAsync(ModProject mod)

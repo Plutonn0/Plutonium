@@ -21,11 +21,11 @@ public sealed class LibraryTests : IDisposable
     private sealed class Handler(Func<HttpRequestMessage, HttpResponseMessage> reply) : HttpMessageHandler
     { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) => Task.FromResult(reply(request)); }
     private static HttpResponseMessage Response(object value) => new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(value, Json)) };
-    private static byte[] Jar(string id)
+    private static byte[] Jar(string id, string version = "1.0", params string[] provides)
     {
         using var memory = new MemoryStream();
         using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, true))
-        { using var writer = new StreamWriter(archive.CreateEntry("fabric.mod.json").Open()); writer.Write(JsonSerializer.Serialize(new { schemaVersion = 1, id, version = "1.0" })); }
+        { using var writer = new StreamWriter(archive.CreateEntry("fabric.mod.json").Open()); writer.Write(JsonSerializer.Serialize(new { schemaVersion = 1, id, version, provides })); }
         return memory.ToArray();
     }
     private static ModVersion Version(string project, string version, byte[] jar, params ModDependency[] dependencies) => new(version, project, project, version, "release", DateTimeOffset.Now,
@@ -82,6 +82,49 @@ public sealed class LibraryTests : IDisposable
         await Assert.ThrowsAsync<InvalidDataException>(() => library.InstallAsync([new("Remote", version, version.Files[0])], default));
         Assert.Equal(original, await File.ReadAllBytesAsync(local)); Assert.Single(Directory.GetFiles(library.DirectoryPath));
     }
+    [Fact]
+    public async Task UpgradesIdentifiedLocalVersionAndPreservesBackup()
+    {
+        var oldBytes = Jar("sodium", "0.8.7"); var newBytes = Jar("sodium", "0.8.14");
+        var old = Version("sodium-project", "old", oldBytes); var next = Version("sodium-project", "new", newBytes);
+        var hash = Convert.ToHexString(SHA512.HashData(oldBytes)).ToLowerInvariant();
+        var api = new ModrinthService(new(new Handler(_ => Response(new Dictionary<string, ModVersion> { [hash] = old }))));
+        var downloads = new DownloadManager(new(new Handler(_ => new(HttpStatusCode.OK) { Content = new ByteArrayContent(newBytes) })));
+        var library = new ModLibrary(_root, downloads, api); Directory.CreateDirectory(library.DirectoryPath);
+        var local = Path.Combine(library.DirectoryPath, "sodium-renamed (1).jar"); await File.WriteAllBytesAsync(local, oldBytes);
+        await library.InstallAsync([new("Sodium", next, next.Files[0])], default);
+        Assert.False(File.Exists(local));
+        Assert.Equal(newBytes, await File.ReadAllBytesAsync(library.PathFor(Assert.Single(await library.LoadAsync()))));
+        Assert.Equal(oldBytes, await File.ReadAllBytesAsync(Assert.Single(Directory.GetFiles(Path.Combine(library.DirectoryPath, ".replaced")))));
+        Assert.Single(Directory.GetFiles(library.DirectoryPath, "*.jar"));
+    }
+
+    [Fact]
+    public async Task LocalExactDependencyConstraintPreventsUnsafeUpgrade()
+    {
+        var oldBytes = Jar("sodium", "old"); var addonBytes = Jar("iris");
+        var old = Version("sodium-project", "old", oldBytes);
+        var addon = Version("iris-project", "iris", addonBytes, new ModDependency("sodium-project", "old", "required"));
+        var next = Version("sodium-project", "new", Jar("sodium", "new"));
+        var identities = new Dictionary<string, ModVersion> { [Convert.ToHexString(SHA512.HashData(oldBytes)).ToLowerInvariant()] = old, [Convert.ToHexString(SHA512.HashData(addonBytes)).ToLowerInvariant()] = addon };
+        var api = new ModrinthService(new(new Handler(_ => Response(identities))));
+        var library = new ModLibrary(_root, new(new(new Handler(_ => throw new Exception("Must not download an incompatible update")))), api);
+        Directory.CreateDirectory(library.DirectoryPath);
+        var local = Path.Combine(library.DirectoryPath, "sodium.jar"); await File.WriteAllBytesAsync(local, oldBytes);
+        await File.WriteAllBytesAsync(Path.Combine(library.DirectoryPath, "iris.jar"), addonBytes);
+        await Assert.ThrowsAsync<InvalidDataException>(() => library.InstallAsync([new("Sodium", next, next.Files[0])], default));
+        Assert.Equal(oldBytes, await File.ReadAllBytesAsync(local)); Assert.Empty(await library.LoadAsync());
+    }
+
+    [Fact]
+    public async Task RepeatedProvidesAliasDoesNotConflictWithItself()
+    {
+        var bytes = Jar("sodium", "1", "sodium", "alias", "alias"); var version = Version("sodium", "1", bytes);
+        var library = new ModLibrary(_root, new(new(new Handler(_ => new(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) }))));
+        await library.InstallAsync([new("Sodium", version, version.Files[0])], default);
+        Assert.Equal(new[] { "sodium", "alias" }, Assert.Single(await library.LoadAsync()).ModIds);
+    }
+
     [Fact]
     public async Task ResolvesExactRequiredDependencyAndSkipsOptional()
     {
@@ -178,6 +221,23 @@ public sealed class LibraryTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => manager.DownloadAsync("test", "https://cdn.modrinth.com/mod", destination, new string('0', 128), HashAlgorithmName.SHA512, cancellation.Token));
         Assert.Equal("old", await File.ReadAllTextAsync(destination)); Assert.Single(Directory.GetFiles(_root)); Assert.Equal("Cancelled", manager.Items[0].Status);
     }
+    [LiveModrinthFact]
+    public async Task LiveSodiumUpgradeFromRenamedOlderJar()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3)); var service = new ModrinthService();
+        var versions = await service.VersionsAsync("sodium", timeout.Token);
+        var old = versions.First(v => v.VersionNumber.Contains("0.8.7"));
+        var next = versions.First(v => v.VersionNumber.Contains("0.8.14"));
+        var oldFile = ModrinthService.SelectFile(old); var nextFile = ModrinthService.SelectFile(next);
+        var downloads = new DownloadManager(); var library = new ModLibrary(_root, downloads, service);
+        var path = Path.Combine(library.DirectoryPath, "sodium-old (1).jar");
+        await downloads.DownloadAsync("Old Sodium fixture", oldFile.Url, path, oldFile.Hashes["sha512"], HashAlgorithmName.SHA512, timeout.Token);
+        await library.InstallAsync([new("Sodium", next, nextFile)], timeout.Token);
+        Assert.Equal(next.Id, Assert.Single(await library.LoadAsync()).VersionId);
+        Assert.False(File.Exists(path)); Assert.Single(Directory.GetFiles(library.DirectoryPath, "*.jar"));
+        Assert.Single(Directory.GetFiles(Path.Combine(library.DirectoryPath, ".replaced")));
+    }
+
     [LiveModrinthFact]
     public async Task LiveModrinthSearchPlanDownloadAndReopen()
     {

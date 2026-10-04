@@ -27,7 +27,7 @@ public sealed class ModrinthService(HttpClient? client = null)
     private async Task<T> GetAsync<T>(string path, CancellationToken token)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.modrinth.com/v2/" + path);
-        request.Headers.UserAgent.ParseAdd("PlutoniumLauncher/1.2.0 (https://github.com/Plutonn0/Plutonium)");
+        request.Headers.UserAgent.ParseAdd("PlutoniumLauncher/1.2.1 (https://github.com/Plutonn0/Plutonium)");
         using var response = await _http.SendAsync(request, token);
         if (response.StatusCode == HttpStatusCode.TooManyRequests)
             throw new HttpRequestException("Modrinth is rate limiting requests. Please wait a minute and try again.");
@@ -49,7 +49,7 @@ public sealed class ModrinthService(HttpClient? client = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.modrinth.com/v2/version_files")
         { Content = JsonContent.Create(new { hashes = hashes.ToArray(), algorithm = "sha512" }) };
-        request.Headers.UserAgent.ParseAdd("PlutoniumLauncher/1.2.0 (https://github.com/Plutonn0/Plutonium)");
+        request.Headers.UserAgent.ParseAdd("PlutoniumLauncher/1.2.1 (https://github.com/Plutonn0/Plutonium)");
         using var response = await _http.SendAsync(request, token); response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Dictionary<string, ModVersion>>(Json, token) ?? [];
     }
