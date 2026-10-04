@@ -27,10 +27,12 @@ public partial class MainWindow : Window
     private System.Windows.Threading.DispatcherTimer? _gameMonitor;
     private bool _gameWindowVisible;
     private bool _stopRequested;
+    private bool _initializationStarted;
+    public event Action<string>? StartupProgress;
 
     public MainWindow()
     {
-        InitializeComponent(); InitializeLibraryPages(); _updates.Downloads = _downloads; _game.Downloads = _downloads;
+        InitializeComponent(); InitializeLibraryPages(); InitializeActivity(); _updates.Downloads = _downloads; _game.Downloads = _downloads;
         _downloads.Items.CollectionChanged += async (_, _) =>
         {
             if (_libraryPage.Visibility == Visibility.Visible && _libraryPage.Tag as string == "downloads")
@@ -38,7 +40,13 @@ public partial class MainWindow : Window
         };
     }
 
-    private async void Window_Loaded(object sender, RoutedEventArgs e) => await InitializeAsync();
+    private async void Window_Loaded(object sender, RoutedEventArgs e) => await InitializeForStartupAsync();
+    public async Task InitializeForStartupAsync()
+    {
+        if (_initializationStarted) return;
+        _initializationStarted = true;
+        await InitializeAsync();
+    }
 
     private async Task InitializeAsync()
     {
@@ -80,7 +88,7 @@ public partial class MainWindow : Window
                 var java = _java ?? throw new InvalidOperationException("Java detection did not complete.");
                 var resultPath = Path.Combine(_config.DataDirectory, "smoke-result.txt");
                 await File.WriteAllTextAsync(resultPath, $"PASS\nMinecraft={installation.MinecraftDirectory}\nJava={java.DisplayVersion}\nStandalone={installation.HasStandaloneFiles}\nFabric={installation.HasFabricFiles}\n");
-                Close();
+                if (!Environment.GetCommandLineArgs().Contains("--smoke-startup")) Close();
             }
         }
         catch (Exception ex)
@@ -311,6 +319,7 @@ public partial class MainWindow : Window
 
     private void SetStage(string state, string detail)
     {
+        StartupProgress?.Invoke(detail);
         StatusBadge.Text = state;
         ActivityText.Text = detail;
         var colorKey = state switch
@@ -325,6 +334,7 @@ public partial class MainWindow : Window
 
     private void SetInstallProgress(string value)
     {
+        StartupProgress?.Invoke(value);
         InstallStatus.Text = value;
         if (_busy) ActivityText.Text = value;
     }
@@ -351,6 +361,7 @@ public partial class MainWindow : Window
     private async void Standalone_Click(object sender, RoutedEventArgs e) { SelectProfile(false); await RunOperationAsync(() => RefreshUpdateStatusAsync()); }
     private async void Fabric_Click(object sender, RoutedEventArgs e) { SelectProfile(true); await RunOperationAsync(() => RefreshUpdateStatusAsync()); }
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
     protected override void OnClosed(EventArgs e)
@@ -439,7 +450,7 @@ public partial class MainWindow : Window
         Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
 
     private static bool IsSmokeTestRun =>
-        Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase);
+        Environment.GetCommandLineArgs().Any(a => a.Equals("--smoke-test", StringComparison.OrdinalIgnoreCase) || a.Equals("--smoke-startup", StringComparison.OrdinalIgnoreCase));
 
     private static string? GetSmokeLaunchProfile()
     {

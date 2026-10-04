@@ -58,7 +58,18 @@ public partial class MainWindow
     {
         var button = new Button { Content = text, Style = (Style)FindResource("QuietButton"), Margin = new Thickness(0, 0, 8, 8), Padding = new Thickness(12, 9, 12, 9) };
         var running = false;
-        button.Click += async (_, _) => { if (running) return; running = true; button.IsHitTestVisible = false; try { await action(); } catch (OperationCanceledException) { } catch (Exception ex) { ShowError(ex); } finally { running = false; button.IsHitTestVisible = true; } };
+        button.Click += async (_, _) =>
+        {
+            if (running) return; running = true; button.IsHitTestVisible = false;
+            var original = button.Content; var activity = new StackPanel { Orientation = Orientation.Horizontal };
+            activity.Children.Add(new ActivityIndicator { Margin = new Thickness(0, 0, 8, 0) });
+            activity.Children.Add(new TextBlock { Text = text is "INSTALL" or "UPDATE" ? "INSTALLING…" : "WORKING…", VerticalAlignment = VerticalAlignment.Center });
+            button.Content = activity;
+            try { await action(); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { ShowError(ex); }
+            finally { running = false; button.Content = original; button.IsHitTestVisible = true; }
+        };
         return button;
     }
     private Button UninstallButton(Func<Task> action)
@@ -71,7 +82,7 @@ public partial class MainWindow
     private static ScrollViewer Scroll(UIElement content) => new() { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 12, 0) };
     private Border Card(UIElement content)
     {
-        var border = new Border { Child = content, Padding = new Thickness(16), BorderBrush = new SolidColorBrush(Color.FromRgb(43, 43, 43)), BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 10) };
+        var border = new Border { Child = content, Padding = new Thickness(18), CornerRadius = new CornerRadius(8), BorderBrush = new SolidColorBrush(Color.FromRgb(43, 43, 48)), BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 12) };
         border.SetResourceReference(Border.BackgroundProperty, "PanelBrush"); return border;
     }
     private TextBox Input(string text, string hint) => new() { Text = text, ToolTip = hint, Style = (Style)FindResource("DarkTextBox"), Margin = new Thickness(0, 0, 8, 10), MinWidth = 100 };
@@ -340,7 +351,13 @@ public partial class MainWindow
             content.Children.Add(ActionButton("CLEAR FINISHED", async () => { foreach (var item in _downloads.Items.Where(i => !i.Active).ToList()) _downloads.Items.Remove(item); await ShowLibraryPageAsync("downloads"); }));
             foreach (var item in _downloads.Items)
             {
-                var body = new StackPanel(); body.Children.Add(Label(item.Name, 15)); var state = Label("", 11, true); state.SetBinding(TextBlock.TextProperty, new Binding(nameof(item.Status)) { Source = item }); body.Children.Add(state);
+                var body = new StackPanel(); body.Children.Add(Label(item.Name, 15));
+                var statusRow = new StackPanel { Orientation = Orientation.Horizontal };
+                var spinner = new ActivityIndicator { Margin = new Thickness(0, 0, 8, 8) };
+                spinner.SetBinding(ActivityIndicator.IsRunningProperty, new Binding(nameof(item.IsTransferring)) { Source = item });
+                spinner.SetBinding(VisibilityProperty, new Binding(nameof(item.IsTransferring)) { Source = item, Converter = new BooleanToVisibilityConverter() });
+                statusRow.Children.Add(spinner);
+                var state = Label("", 11, true); state.SetBinding(TextBlock.TextProperty, new Binding(nameof(item.Status)) { Source = item }); statusRow.Children.Add(state); body.Children.Add(statusRow);
                 var bar = new ProgressBar { Height = 3, Maximum = 100, Foreground = Brushes.White, Background = Brushes.DimGray, Margin = new Thickness(0, 4, 0, 12) }; bar.SetBinding(ProgressBar.ValueProperty, new Binding(nameof(item.Percent)) { Source = item }); body.Children.Add(bar);
                 var detail = Label("", 11, true); detail.SetBinding(TextBlock.TextProperty, new Binding(nameof(item.Detail)) { Source = item }); body.Children.Add(detail);
                 var actions = new WrapPanel();

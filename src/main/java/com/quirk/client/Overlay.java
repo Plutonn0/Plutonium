@@ -117,7 +117,8 @@ public final class Overlay {
         if(viewProjection!=null&&eye!=null)for(Label label:labels){Vec3 r=label.position.subtract(eye);Vector4f p=new Vector4f((float)r.x,(float)r.y,(float)r.z,1).mul(viewProjection);if(p.w<=0||Math.abs(p.x)>p.w||Math.abs(p.y)>p.w)continue;int x=(int)((p.x/p.w+1)*w*.5),y=(int)((1-p.y/p.w)*h*.5),tw=width(label.text);g.fill(x-tw/2-4,y-3,x+tw/2+4,y+12,0xb0000000);text(g,label.text,x-tw/2,y,label.color);}
         if(s.module("coordinates").on()){
             BlockPos p=mc.player.blockPosition();String[] lines={"X: "+p.getX(),"Y: "+p.getY(),"Z: "+p.getZ()};int bw=Arrays.stream(lines).mapToInt(Paint::width).max().orElse(45)+12;
-            g.pose().pushMatrix();g.pose().translate(8,8);g.fill(0,0,bw+8,51,0xd9111111);g.fill(0,0,1,51,0xffcccccc);for(int i=0;i<3;i++)text(g,lines[i],10,5+14*i,TEXT);g.pose().popMatrix();
+            float scale=(float)(s.module("coordinates").number("scale")/100);
+            g.pose().pushMatrix();g.pose().translate(6,6);g.pose().scale(scale,scale);g.fill(0,0,bw,41,0xd9111111);g.fill(0,0,1,41,0xffcccccc);for(int i=0;i<3;i++)text(g,lines[i],6,12*i,TEXT);g.pose().popMatrix();
         }
         if(s.module("active").on()){
             var module=s.module("active");float scale=(float)(module.number("scale")/100);

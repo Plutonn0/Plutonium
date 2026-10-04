@@ -70,22 +70,22 @@ public sealed class AccountAndUpdateTests : IDisposable
         using (var archive = System.IO.Compression.ZipFile.Open(jar, System.IO.Compression.ZipArchiveMode.Update))
         { using var writer = new StreamWriter(archive.CreateEntry("new-release.txt").Open()); writer.Write("newer client fixture"); }
         var newerHash = SHA256.HashData(await File.ReadAllBytesAsync(jar));
-        config.StandaloneClientVersion = "2.0.0";
+        config.StandaloneClientVersion = "99.0.0";
         File.Delete(metadata);
         await bootstrap.InstallOrRepairAsync(config);
         Assert.Equal(newerHash, SHA256.HashData(await File.ReadAllBytesAsync(jar)));
         Assert.True(File.Exists(metadata));
-        Assert.Equal("2.0.0", config.StandaloneClientVersion);
+        Assert.Equal("99.0.0", config.StandaloneClientVersion);
     }
 
     [Fact]
     public async Task MissingNewerClientFallsBackToAccurateBundledVersion()
     {
         var config = Config();
-        config.StandaloneClientVersion = config.FabricClientVersion = "2.0.0";
+        config.StandaloneClientVersion = config.FabricClientVersion = "99.0.0";
         await new BootstrapService().InstallOrRepairAsync(config);
-        Assert.Equal("1.3.1", config.StandaloneClientVersion);
-        Assert.Equal("1.3.1", config.FabricClientVersion);
+        Assert.Equal("2.0.0", config.StandaloneClientVersion);
+        Assert.Equal("2.0.0", config.FabricClientVersion);
     }
 
     [Fact]
@@ -96,11 +96,11 @@ public sealed class AccountAndUpdateTests : IDisposable
         await bootstrap.InstallOrRepairAsync(config);
         var target = Path.Combine(config.StandaloneGameDirectory, "versions", "plutonium-1.21.11", "plutonium-1.21.11.jar");
         await File.WriteAllTextAsync(target, "truncated downloaded release");
-        config.StandaloneClientVersion = "2.0.0";
+        config.StandaloneClientVersion = "99.0.0";
         await bootstrap.InstallOrRepairAsync(config);
         using var jar = System.IO.Compression.ZipFile.OpenRead(target);
         Assert.NotNull(jar.GetEntry("com/quirk/client/Quirk.class"));
-        Assert.Equal("1.3.1", config.StandaloneClientVersion);
+        Assert.Equal("2.0.0", config.StandaloneClientVersion);
     }
 
     [Fact]

@@ -117,7 +117,7 @@ public final class Settings {
         new Module("notifications", "Notifications", "HUD", "Compact bottom-left notifications with helpful descriptions", true).add(slider("duration", "Display duration", 4, 2, 10, 1, " s"),slider("scale", "Size", 60, 45, 100, 5, "%")),
         new Module("discord", "Discord Presence", "ENTERTAINMENT", "Display Plutonium in your desktop Discord activity", false).add(text("application", "Application ID", "1555301670643310712")),
         new Module("radio", "Radio", "ENTERTAINMENT", "YouTube opens in your browser; direct Ogg streams play in-game", false).add(choice("mode", "Playback", "YouTube", "YouTube", "In-game stream"),text("youtube", "YouTube playlist URL", "https://www.youtube.com/playlist?list=PLP75Cve0zgoY"),text("playlist", "Ogg/Vorbis stream URL", ""),slider("volume", "In-game volume", 50, 0, 100, 1, "%")),
-        new Module("coordinates", "Coordinates", "HUD", "Your block position, including correct negative coordinates", true),
+        new Module("coordinates", "Coordinates", "HUD", "Your block position, including correct negative coordinates", true).add(slider("scale", "Size", 65, 45, 100, 5, "%")),
         new Module("active", "Active Modules HUD", "HUD", "A compact list of enabled features", true).add(slider("scale", "Size", 65, 45, 100, 5, "%"),slider("rows", "Maximum visible modules", 10, 3, 20, 1, ""))
     );
     public Module module(String id) { return modules.stream().filter(m -> m.id.equals(id)).findFirst().orElseThrow(); }

@@ -16,6 +16,7 @@ public sealed class DownloadItem(string name) : INotifyPropertyChanged
     public bool Paused { get; private set; }
     public bool CanPause { get; init; } = true;
     public bool Active => Status is "Downloading" or "Paused" or "Queued";
+    public bool IsTransferring => Status is "Downloading" or "Queued";
     internal CancellationTokenSource Cancellation { get; } = new();
     public event PropertyChangedEventHandler? PropertyChanged;
     public void TogglePause() { if (!Active || !CanPause) return; Paused = !Paused; Update(Paused ? "Paused" : "Downloading", Detail, Percent); }

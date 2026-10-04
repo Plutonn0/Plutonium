@@ -292,6 +292,43 @@ public sealed class LibraryTests : IDisposable
                 dropdown.ApplyTemplate(); dropdown.SelectedValue = "2560x1440";
                 Assert.NotNull(dropdown.SelectedItem);
                 Assert.Equal(5, ((System.Windows.Controls.StackPanel)window.FindName("Navigation")).Children.Count);
+                var reflection = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var transfers = (DownloadManager)typeof(MainWindow).GetField("_downloads", reflection)!.GetValue(window)!;
+                var refresh = typeof(MainWindow).GetMethod("RefreshActivity", reflection)!;
+                var queued = new DownloadItem("Example mod"); transfers.Items.Add(queued); refresh.Invoke(window, null);
+                var indicator = (ActivityIndicator)window.FindName("DownloadSpinner"); Assert.True(indicator.IsRunning);
+                queued.TogglePause(); refresh.Invoke(window, null); Assert.False(indicator.IsRunning);
+                Assert.Contains("Paused", ((System.Windows.Controls.TextBlock)window.FindName("DownloadDetail")).Text);
+                transfers.Items.Clear(); refresh.Invoke(window, null); Assert.False(indicator.IsRunning);
+                var root = (System.Windows.FrameworkElement)window.Content;
+                foreach (var size in new[] { new System.Windows.Size(1320, 840), new System.Windows.Size(1120, 740) })
+                {
+                    root.Measure(size); root.Arrange(new System.Windows.Rect(size)); root.UpdateLayout();
+                    var play = (System.Windows.Controls.Button)window.FindName("PlayButton");
+                    var bounds = play.TransformToAncestor(root).TransformBounds(new System.Windows.Rect(play.RenderSize));
+                    Assert.True(bounds.Right <= size.Width && bounds.Bottom <= size.Height && bounds.Width >= 150);
+                    var preview = Environment.GetEnvironmentVariable("PLUTONIUM_UI_PREVIEW_DIR");
+                    if (preview is not null)
+                    {
+                        Directory.CreateDirectory(preview);
+                        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)size.Width * 2, (int)size.Height * 2, 192, 192, System.Windows.Media.PixelFormats.Pbgra32);
+                        bitmap.Render(root); var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                        using var output = File.Create(Path.Combine(preview, $"launcher-{size.Width:0}.png")); encoder.Save(output);
+                    }
+                }
+                var splash = new SplashWindow();
+                splash.SetStatus("Checking client files…");
+                Assert.Contains("Checking", ((System.Windows.Controls.TextBlock)splash.FindName("StatusText")).Text);
+                var splashPreview = Environment.GetEnvironmentVariable("PLUTONIUM_UI_PREVIEW_DIR");
+                if (splashPreview is not null)
+                {
+                    var surface = (System.Windows.FrameworkElement)splash.Content;
+                    surface.Measure(new System.Windows.Size(500, 340)); surface.Arrange(new System.Windows.Rect(0, 0, 500, 340)); surface.UpdateLayout();
+                    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(1000, 680, 192, 192, System.Windows.Media.PixelFormats.Pbgra32);
+                    bitmap.Render(surface); var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                    using var output = File.Create(Path.Combine(splashPreview, "splash.png")); encoder.Save(output);
+                }
+                splash.Close();
                 window.Close(); app.Shutdown();
             }
             catch (Exception ex) { failure = ex; }

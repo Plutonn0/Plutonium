@@ -1,0 +1,17 @@
+<Window x:Class="PlutoniumLauncher.SplashWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:PlutoniumLauncher"
+ Title="Starting Plutonium" Width="500" Height="340" WindowStyle="None" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Background="#0B0B0D" Foreground="White" Icon="Assets/Plutonium.ico" FontFamily="{StaticResource Lato}">
+ <Border BorderBrush="#353539" BorderThickness="1" Padding="32">
+  <Grid>
+   <Button HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource CloseIconButton}" Click="Close_Click" />
+   <StackPanel VerticalAlignment="Center">
+    <Image Source="Assets/Plutonium.png" Width="92" Height="92" Margin="0,0,0,22" />
+    <TextBlock Text="PLUTONIUM" FontSize="24" HorizontalAlignment="Center" />
+    <TextBlock Text="A space for your next session." Foreground="#909096" FontSize="11" HorizontalAlignment="Center" Margin="0,10,0,24" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+     <local:ActivityIndicator Margin="0,0,10,0" />
+     <TextBlock x:Name="StatusText" Text="Starting your launcher…" MaxWidth="340" TextTrimming="CharacterEllipsis" FontSize="11" Foreground="#B5B5BC" VerticalAlignment="Center" />
+    </StackPanel>
+   </StackPanel>
+  </Grid>
+ </Border>
+</Window>

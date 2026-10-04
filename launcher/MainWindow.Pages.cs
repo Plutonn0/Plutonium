@@ -18,8 +18,26 @@ public partial class MainWindow
         var navigationPage = page is "settings" or "servers" or "downloads" or "history" or "health" or "diagnosis" or "installed" or "theme" ? "settings" : page;
         foreach (var pair in pages) pair.Value.Visibility = pair.Key == contentPage ? Visibility.Visible : Visibility.Collapsed;
         foreach (var button in Navigation.Children.OfType<Button>())
+        {
             button.BorderBrush = Equals(button.Tag, navigationPage) ? Brushes.White : (Brush)FindResource("StrokeBrush");
-        pages[contentPage].BeginAnimation(OpacityProperty, new DoubleAnimation(.3, 1, TimeSpan.FromMilliseconds(180)));
+            button.Background = Equals(button.Tag, navigationPage) ? new SolidColorBrush(Color.FromRgb(32, 32, 37)) : Brushes.Transparent;
+        }
+        if (SystemParameters.ClientAreaAnimation)
+        {
+            var pageTransform = new TranslateTransform(); pages[contentPage].RenderTransform = pageTransform;
+            pageTransform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(6, 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+            pages[contentPage].BeginAnimation(OpacityProperty, new DoubleAnimation(.3, 1, TimeSpan.FromMilliseconds(180)));
+        }
+    }
+    private async void DashboardLink_Click(object sender, RoutedEventArgs e)
+    {
+        var page = (string)((Button)sender).Tag; Navigate(page);
+        try
+        {
+            if (page == "mods") { _installedMods = false; await SearchModsAsync(); }
+            else await ShowLibraryPageAsync(page);
+        }
+        catch (Exception ex) { ShowError(ex); }
     }
     private async void Navigate_Click(object sender, RoutedEventArgs e)
     {
