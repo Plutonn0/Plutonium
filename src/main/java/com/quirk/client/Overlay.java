@@ -118,7 +118,7 @@ public final class Overlay {
         if(s.module("coordinates").on()){
             BlockPos p=mc.player.blockPosition();String[] lines={"X: "+p.getX(),"Y: "+p.getY(),"Z: "+p.getZ()};int bw=Arrays.stream(lines).mapToInt(Paint::width).max().orElse(45)+12;
             float scale=(float)(s.module("coordinates").number("scale")/100);
-            g.pose().pushMatrix();g.pose().translate(6,6);g.pose().scale(scale,scale);g.fill(0,0,bw,41,0xd9111111);g.fill(0,0,1,41,0xffcccccc);for(int i=0;i<3;i++)text(g,lines[i],6,12*i,TEXT);g.pose().popMatrix();
+            g.pose().pushMatrix();g.pose().translate(6,6);g.pose().scale(scale,scale);g.fill(0,0,bw,41,0xd9111111);g.fill(0,0,1,41,0xffcccccc);for(int i=0;i<3;i++)hudText(g,lines[i],6,2.5f+12*i,12,TEXT);g.pose().popMatrix();
         }
         if(s.module("active").on()){
             var module=s.module("active");float scale=(float)(module.number("scale")/100);
@@ -131,7 +131,7 @@ public final class Overlay {
             for(int i=0;i<visible+(visible<enabled.size()?1:0);i++){
                 String name=i<visible?enabled.get(i).name:"+ "+(enabled.size()-visible)+" more";
                 int tw=width(name);g.fill(-tw-12,y,0,y+15,0xd9111111);g.fill(-1,y,0,y+15,0xffcccccc);
-                text(g,name,-tw-7,y-1,TEXT);y+=16;
+                hudText(g,name,-tw-7,y,15,TEXT);y+=16;
             }
             g.pose().popMatrix();
         }

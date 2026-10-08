@@ -75,6 +75,8 @@ public final class Quirk {
         System.out.println("[Plutonium] Client initialized: Minecraft 1.21.11 / Java 21");
     }
     public static void tick() {
+        RemotePolicy.tick();
+        if(settings!=null){fullbright=settings.module("fullbright").on();boolean nextXray=settings.module("xray").on();if(xray!=nextXray){xray=nextXray;if(Minecraft.getInstance().level!=null)Minecraft.getInstance().levelRenderer.allChanged();}}
         initialize(); VideoSettingsPersistence.tick(); syncFreecam(); syncFreelook(); MovementModules.tick(); automate(); aimAssist(); extraAutomation(); store.tick(); overlay.tick(); Notifications.tick(); Entertainment.tick();
     }
     public static void saveVideoSettings(){VideoSettingsPersistence.saveOnExit();}

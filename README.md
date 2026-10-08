@@ -1,5 +1,7 @@
 # Plutonium
 
+Cloud moderation setup is documented in [the owner/deployment guide](docs/moderation-setup.md), with a [website appeal API handoff](docs/moderation-api.md). It requires a deployed API and verified Microsoft owner registration before activation; the current bundled endpoint is intentionally unprovisioned. See [50 proposed features](docs/feature-ideas.md) for ideas that have not been implemented.
+
 A Minecraft **Java 1.21.11** client targeting **Java 21**. Plutonium provides its own launcher profile and a Fabric-compatible profile, so you can use Fabric mods alongside Plutonium.
 
 ## Play

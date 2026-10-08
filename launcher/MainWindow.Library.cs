@@ -132,6 +132,7 @@ public partial class MainWindow
     }
     private async Task SearchModsAsync(bool debounce = false)
     {
+        await RequireFeatureAsync("mods");
         _installedMods = false;
         _modSearch?.Cancel(); _modSearch = new(); var token = _modSearch.Token;
         try
@@ -191,6 +192,7 @@ public partial class MainWindow
     });
     private async Task InstallModPlanAsync(List<ModPlanEntry> plan, bool recheck = true)
     {
+        await RequireFeatureAsync("mods");
         if (recheck)
         {
             var root = plan.Last();
@@ -304,6 +306,7 @@ public partial class MainWindow
     }
     private async Task ShowLibraryPageAsync(string page)
     {
+        if (page == "moderation") { await ShowModerationAsync(); return; }
         _libraryPage.Tag = page;
         _libraryPage.Children.Clear();
         var content = new StackPanel(); _libraryPage.Children.Add(Scroll(content));
@@ -311,6 +314,7 @@ public partial class MainWindow
         if (page == "settings")
         {
             content.Children.Add(Label("Settings", 28)); content.Children.Add(Label("Your launcher, in one place.", 12, true));
+            content.Children.Add(ActionButton("MODERATION & SERVICE STATUS", async () => { Navigate("moderation"); await ShowModerationAsync(); }));
             var general = new StackPanel(); general.Children.Add(Label("Game & appearance", 18)); general.Children.Add(Label("Memory, resolution, fullscreen, folders and your preferred theme.", 12, true));
             var controls = new WrapPanel(); controls.Children.Add(ActionButton("GAME SETTINGS", () => { Settings_Click(this, new()); return Task.CompletedTask; }));
             controls.Children.Add(ActionButton("APPEARANCE", () => { Navigate("theme"); return Task.CompletedTask; })); general.Children.Add(controls); content.Children.Add(Card(general));

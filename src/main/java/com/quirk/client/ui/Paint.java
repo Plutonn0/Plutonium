@@ -16,6 +16,16 @@ public final class Paint {
         g.pose().pushMatrix(); g.pose().translate(x,y+6); g.pose().scale(0.5f,0.5f);
         g.drawString(Minecraft.getInstance().font, label(s), 0, 0, color, false); g.pose().popMatrix();
     }
+    public static void hudText(GuiGraphics g, String s, float x, float top, float height, int color) {
+        var font = Minecraft.getInstance().font;
+        var label = label(s);
+        var bounds = font.prepareText(label.getVisualOrderText(), 0, 0, color, false, false, 0).bounds();
+        if (bounds == null) return;
+        // Center the actual glyphs, not Minecraft's default line height or the menu's offset.
+        float y = top + (height - bounds.height() * 0.5f) / 2 - bounds.top() * 0.5f;
+        g.pose().pushMatrix(); g.pose().translate(x, y); g.pose().scale(0.5f, 0.5f);
+        g.drawString(font, label, 0, 0, color, false); g.pose().popMatrix();
+    }
     public static int pixelWidth(String text) { return Minecraft.getInstance().font.width(Component.literal(text)); }
     public static void pixelText(GuiGraphics g, String value, int x, int y, int color, int maxWidth, boolean centered) {
         if (maxWidth <= 0 || value.isEmpty()) return;

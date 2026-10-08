@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $id = 'plutonium-1.21.11'
 $jar = Join-Path $root "build/client/$id.jar"
-$fabricMod = Join-Path $root 'fabric/build/libs/plutonium-client-fabric-2.0.0.jar'
+$fabricMod = Join-Path $root 'fabric/build/libs/plutonium-client-fabric-2.0.1.jar'
 if (-not (Test-Path -LiteralPath $jar)) { throw 'Build Plutonium first with BUILD.cmd.' }
 if (-not (Test-Path -LiteralPath $fabricMod)) { throw 'Build the Fabric-compatible Plutonium mod first with BUILD.cmd.' }
 $target = Join-Path $MinecraftDirectory "versions/$id"

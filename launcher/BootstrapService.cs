@@ -30,7 +30,7 @@ public sealed class BootstrapService
         var installRoots = new[] { detected.MinecraftDirectory, detected.StandaloneGameDirectory }
             .Distinct(StringComparer.OrdinalIgnoreCase);
         var standalonePinned = await UpdateService.FileMatchesSha256Async(Path.Combine(detected.StandaloneGameDirectory, "versions", StandaloneVersion, StandaloneVersion + ".jar"), config.StandaloneRollbackHash, cancellationToken);
-        if ((!standalonePinned && !IsNewer(config.StandaloneClientVersion, "2.0.0"))
+        if ((!standalonePinned && !IsNewer(config.StandaloneClientVersion, "2.0.1"))
             || !IsReadableJar(Path.Combine(detected.StandaloneGameDirectory, "versions", StandaloneVersion, StandaloneVersion + ".jar")))
         {
             foreach (var gameDirectory in installRoots)
@@ -39,7 +39,7 @@ public sealed class BootstrapService
                 Directory.CreateDirectory(versionDirectory);
                 await InstallEmbeddedAsync(StandaloneResource, Path.Combine(versionDirectory, StandaloneVersion + ".jar"), cancellationToken);
             }
-            config.StandaloneClientVersion = "2.0.0";
+            config.StandaloneClientVersion = "2.0.1";
         }
         // Metadata can go missing independently of the jar. Repair it without downgrading a newer client.
         foreach (var gameDirectory in installRoots)
@@ -54,10 +54,10 @@ public sealed class BootstrapService
         Directory.CreateDirectory(modsDirectory);
         var fabricMod = InstallationDiscovery.FabricModPath(detected.FabricGameDirectory);
         var fabricPinned = await UpdateService.FileMatchesSha256Async(fabricMod, config.FabricRollbackHash, cancellationToken);
-        if ((!fabricPinned && !IsNewer(config.FabricClientVersion, "2.0.0")) || !IsReadableJar(fabricMod))
+        if ((!fabricPinned && !IsNewer(config.FabricClientVersion, "2.0.1")) || !IsReadableJar(fabricMod))
         {
             await InstallEmbeddedAsync(FabricResource, fabricMod, cancellationToken);
-            config.FabricClientVersion = "2.0.0";
+            config.FabricClientVersion = "2.0.1";
         }
 
         config.MinecraftDirectory = detected.MinecraftDirectory;

@@ -31,6 +31,9 @@ public partial class MainWindow
         _config.SelectedAccountId = result.Account.Id;
         await _config.SaveAsync(OperationToken);
         _session = result.Session;
+        _serviceConnected=false;
+        await _moderation.SignOutAsync();
+        if (ModerationService.Configured) await ConnectModerationAsync();
         RefreshAccounts();
         ShowSignedInAccount(_session);
         SetStage("READY", "Account added");
@@ -42,6 +45,8 @@ public partial class MainWindow
         _config.SelectedAccountId = selected.Id;
         await _config.SaveAsync(OperationToken);
         _session = null;
+        _serviceConnected=false;
+        await _moderation.SignOutAsync();
         RefreshAccounts();
         Navigate("play");
         SetStage("READY", $"Using {selected.Name}");
@@ -55,6 +60,8 @@ public partial class MainWindow
         {
             _config.SelectedAccountId = string.Empty;
             _session = null;
+            _serviceConnected=false;
+            await _moderation.SignOutAsync();
             await _config.SaveAsync(OperationToken);
         }
         RefreshAccounts();

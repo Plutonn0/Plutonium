@@ -29,7 +29,7 @@
                     </StackPanel>
                 </Grid>
             </Border>
-            <Grid Grid.Row="1">
+            <Grid x:Name="LauncherBody" Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="180" />
                     <ColumnDefinition />
@@ -60,7 +60,7 @@
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                             <Border CornerRadius="12" BorderBrush="#36363B" BorderThickness="1" ClipToBounds="True">
-                                <Grid>
+                                <Grid SizeChanged="Hero_SizeChanged">
                                     <Grid.Background><LinearGradientBrush StartPoint="0,1" EndPoint="1,0"><GradientStop Color="#121216" /><GradientStop Color="#25252D" Offset="0.65" /><GradientStop Color="#0B0B0D" Offset="1" /></LinearGradientBrush></Grid.Background>
                                     <Image Source="Assets/Plutonium.png" Width="360" Height="360" Opacity="0.3" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,-95,-10" IsHitTestVisible="False"><Image.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="Transparent" /><GradientStop Color="White" Offset="0.45" /></LinearGradientBrush></Image.OpacityMask></Image>
                                     <Path Data="M 0,220 L 650,0 M 0,320 L 750,90 M 80,500 L 820,160" Stroke="#16FFFFFF" StrokeThickness="1" Stretch="Fill" IsHitTestVisible="False" />

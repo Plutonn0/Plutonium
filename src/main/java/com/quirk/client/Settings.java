@@ -58,7 +58,7 @@ public final class Settings {
         }
         Module add(Option... extra) { options.addAll(List.of(extra)); return this; }
         public Option get(String id) { return options.stream().filter(o -> o.id.equals(id)).findFirst().orElseThrow(); }
-        public boolean on() { return enabled.on(); }
+        public boolean on() { return enabled.on() && RemotePolicy.permits(id); }
         public boolean flag(String id) { return get(id).on(); }
         public double number(String id) { return get(id).number(); }
         public int color() { return get("color").color(); }

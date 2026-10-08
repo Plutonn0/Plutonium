@@ -84,8 +84,8 @@ public sealed class AccountAndUpdateTests : IDisposable
         var config = Config();
         config.StandaloneClientVersion = config.FabricClientVersion = "99.0.0";
         await new BootstrapService().InstallOrRepairAsync(config);
-        Assert.Equal("2.0.0", config.StandaloneClientVersion);
-        Assert.Equal("2.0.0", config.FabricClientVersion);
+        Assert.Equal("2.0.1", config.StandaloneClientVersion);
+        Assert.Equal("2.0.1", config.FabricClientVersion);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class AccountAndUpdateTests : IDisposable
         await bootstrap.InstallOrRepairAsync(config);
         using var jar = System.IO.Compression.ZipFile.OpenRead(target);
         Assert.NotNull(jar.GetEntry("com/quirk/client/Quirk.class"));
-        Assert.Equal("2.0.0", config.StandaloneClientVersion);
+        Assert.Equal("2.0.1", config.StandaloneClientVersion);
     }
 
     [Fact]

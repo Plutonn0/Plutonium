@@ -17,9 +17,11 @@ public final class MovementModules {
         var keys=new KeyMapping[]{mc.options.keyUp,mc.options.keyDown,mc.options.keyLeft,mc.options.keyRight,mc.options.keyJump};
         boolean inventory=settings.module("inventorymove").on()&&mc.screen instanceof InventoryScreen&&mc.isWindowActive()&&player!=null&&!player.isDeadOrDying()&&!Quirk.freecam()
             &&!typing(mc.screen);
-        if(inventory){
+        boolean returningToGame=inventoryKeys&&mc.screen==null&&mc.isWindowActive()&&player!=null&&!player.isDeadOrDying()&&!Quirk.freecam();
+        if(inventory||returningToGame){
             for(var binding:keys){var key=InputConstants.getKey(binding.saveString());
-                binding.setDown(key.getType()==InputConstants.Type.KEYSYM&&key.getValue()>=0&&InputConstants.isKeyDown(mc.getWindow(),key.getValue()));}
+                binding.setDown(key.getType()==InputConstants.Type.KEYSYM&&key.getValue()>=0&&InputConstants.isKeyDown(mc.getWindow(),key.getValue())
+                    ||key.getType()==InputConstants.Type.MOUSE&&GLFW.glfwGetMouseButton(mc.getWindow().handle(),key.getValue())==GLFW.GLFW_PRESS);}
         }else if(inventoryKeys){for(var binding:keys)binding.setDown(false);}
         inventoryKeys=inventory;
         var fly=settings.module("fly");

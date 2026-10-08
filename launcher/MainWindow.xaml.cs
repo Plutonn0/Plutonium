@@ -32,7 +32,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        InitializeComponent(); InitializeLibraryPages(); InitializeActivity(); _updates.Downloads = _downloads; _game.Downloads = _downloads;
+        InitializeComponent(); InitializeLibraryPages(); InitializeActivity(); InitializeModeration(); _updates.Downloads = _downloads; _game.Downloads = _downloads;
         _downloads.Items.CollectionChanged += async (_, _) =>
         {
             if (_libraryPage.Visibility == Visibility.Visible && _libraryPage.Tag as string == "downloads")
@@ -59,6 +59,8 @@ public partial class MainWindow : Window
             Navigate("play");
             _accounts = new AccountService(_config.DataDirectory);
             RefreshAccounts();
+            await RefreshPolicyAsync();
+            if (ModerationService.Configured) _moderationTimer.Start();
             _installation = InstallationDiscovery.Detect(_config);
             _config.MinecraftDirectory = _installation.MinecraftDirectory;
             _config.StandaloneGameDirectory = _installation.StandaloneGameDirectory;
@@ -158,6 +160,7 @@ public partial class MainWindow : Window
             _session = await _accounts.AuthenticateAsync(_config.SelectedAccountId, OperationToken);
         }
         ShowSignedInAccount(_session);
+        await RequireClientAccessAsync();
 
         SetStage("UPDATING", "Checking configured Plutonium updates");
         await RefreshUpdateStatusAsync(applyUpdates: _config.AutomaticUpdates);

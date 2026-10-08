@@ -15,14 +15,15 @@ public sealed class LauncherConfig
     public bool Fullscreen { get; set; }
     public string SelectedProfile { get; set; } = "standalone";
     public string SelectedAccountId { get; set; } = string.Empty;
+    public string InstallationId { get; set; } = Guid.NewGuid().ToString();
     public string Theme { get; set; } = "Black";
     public bool AutomaticUpdates { get; set; } = true;
     public bool ShowPlayerHead { get; set; } = true;
     public List<ServerFavorite> Servers { get; set; } = [];
     public string FabricRollbackHash { get; set; } = "";
     public string StandaloneRollbackHash { get; set; } = "";
-    public string StandaloneClientVersion { get; set; } = "2.0.0";
-    public string FabricClientVersion { get; set; } = "2.0.0";
+    public string StandaloneClientVersion { get; set; } = "2.0.1";
+    public string FabricClientVersion { get; set; } = "2.0.1";
     public string ClientManifestUrl { get; set; } = "https://github.com/Plutonn0/Plutonium/releases/latest/download/client.json";
     public string LauncherManifestUrl { get; set; } = "https://github.com/Plutonn0/Plutonium/releases/latest/download/launcher.json";
 

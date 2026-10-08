@@ -58,10 +58,9 @@ public final class Notifications {
             int alpha=(int)(opacity*232);
             g.fill(cardX,y,cardX+width,y+height,(alpha<<24)|0x111111);
             g.fill(cardX,y,cardX+1,y+height,((int)(opacity*255)<<24)|0xcccccc);
-            int titleY=y-1;
-            Paint.text(g,title,cardX+6,titleY,((int)(opacity*255)<<24)|0xeeeeee);
+            Paint.hudText(g,title,cardX+6,description.isEmpty()?y:y+3,description.isEmpty()?height:10,((int)(opacity*255)<<24)|0xeeeeee);
             if(!description.isEmpty())
-                Paint.text(g,description,cardX+6,y+9,((int)(opacity*210)<<24)|0xaaaaaa);
+                Paint.hudText(g,description,cardX+6,y+13,10,((int)(opacity*210)<<24)|0xaaaaaa);
             y-=3;
         }
         g.pose().popMatrix();
