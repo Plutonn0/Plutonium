@@ -2,9 +2,9 @@
 
 ## Status
 
-The API, launcher dashboard and official-client policy checks are implemented in this repository. **They are not activated on the live site.** `src/main/resources/plutonium-service.json` intentionally has an empty `baseUrl`. Such a build displays “Server setup required”, grants no moderation permissions and retains normal offline launcher behavior. This is a provisioning state, not production enforcement. Do not advertise a build as moderation-enforced until the production checks below pass.
+The production API is deployed at **https://plutonium-moderation.vercel.app/api/v1** with a dedicated Neon PostgreSQL database. `src/main/resources/plutonium-service.json` now embeds that endpoint for newly built launchers and clients. Previously downloaded builds are unchanged. The appeal page is live at **https://plutoniumclient.vercel.app/appeal** with production Turnstile keys. Production configuration, unsigned-admin rejection, invalid Minecraft tokens and invalid CAPTCHA rejection have been checked. Live owner elevation, successful human CAPTCHA submission and official-client acceptance checks remain required before publishing an enabled release.
 
-The connected Vercel account could list project `plutonium`, but inspecting it returned HTTP 403 for team `team_QGbCygnu3U4DUD0sGTLGIpNR`. There is no local Vercel CLI login available. The website's source is not in this repository. These instructions let its maintainer deploy a separate API without replacing the existing website.
+The API uses the separate Vercel project **ymca22/plutonium-moderation**. The existing website remains in **ymca22/plutonium**; its source is not in this repository. The existing Microsoft identity helper successfully verified the intended owner account on 2026-10-08. Its verified object ID, registration ID, Minecraft UUID and appeal origin/hostname are configured in the API project's Production environment. No authentication implementation was replaced or modified during provisioning.
 
 ## Security model and limits
 
@@ -30,6 +30,28 @@ There is deliberately no “first user becomes owner” endpoint, default admini
 
 Reference: [Microsoft device-code flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code).
 
+### Running the existing identity helper on Windows
+
+After registering the app, open PowerShell and run:
+
+```powershell
+Set-Location 'C:\Users\papro\Plutonium\moderation'
+npm ci
+$env:MICROSOFT_CLIENT_ID = 'YOUR-APPLICATION-CLIENT-ID'
+node scripts/identify-owner.js
+```
+
+For this personal-account registration, open **https://www.microsoft.com/link**, enter the helper's current one-time code and sign in as the intended personal account. The generic `microsoft.com/devicelogin` URL printed by the existing helper rejected the consumer code during setup; the personal-account link accepted it. Use a private browser window and choose another account if a different Microsoft account is selected. Keep the helper running until it prints `OWNER_MICROSOFT_OID`, and check the verified account label before configuring ownership. Only a successful helper run establishes the verified owner ID. Do not substitute an ID copied from an unverified token.
+
+For a personal Microsoft account, this existing helper verifies the following values in the signed token:
+
+- Tenant (`tid`): `9188040d-6c67-4c5b-b112-36a304b66dad`
+- Issuer (`iss`): `https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0`
+
+The **Directory (tenant) ID** shown on the app registration identifies the directory hosting the application; it is not the personal-account consumer tenant above. This implementation already pins the consumer tenant and issuer in `moderation/lib/security.js`; do not add a different tenant environment variable or replace the authentication code.
+
+If the helper cannot start, confirm that the application supports personal accounts and that public-client flows are enabled. If sign-in expires, run the same helper again for a fresh code. Do not create a client secret to work around a device-code configuration error.
+
 ## 2. API and database
 
 Deploy the **moderation/** folder as its own Vercel project with Node.js 22 or newer. Use the standard [Node.js Vercel Functions runtime](https://vercel.com/docs/functions/runtimes/node-js). Do not redeploy this folder over the existing website.
@@ -48,6 +70,8 @@ Set these production environment variables from `moderation/.env.example`:
 | `APPEAL_ORIGIN` | `https://plutoniumclient.vercel.app` |
 | `APPEAL_HOSTNAME` | `plutoniumclient.vercel.app` |
 
+Put these values in the **moderation API project's Production environment** in Vercel. Do not prefix secrets with `NEXT_PUBLIC_` or `VITE_`, put them in Git, or paste them into chat. Environment-variable changes require a new deployment before they affect running Functions. The website gets only the API base URL and the **public Turnstile site key**; its matching secret belongs exclusively to the API. Use a separate database and separate owner setup for preview deployments, or leave previews unconfigured.
+
 From `moderation/`, run `npm ci`, `npm test`, then `npm run migrate` with `DATABASE_URL` set securely. The migration creates tables and an inactive maintenance policy; it does not grant an owner or admin. Deploy the project and retain its HTTPS URL. The API uses PostgreSQL for persistent sessions, account state, appeals, limits, configuration and audit records; Vercel's local filesystem is not used for storage.
 
 Configure database retention according to the published privacy policy. `activity_days` can be pruned after 35 days without affecting week-over-week metrics; expired sessions and rate-limit entries are removed on sign-in. Keep restricted-account records while restrictions/appeals are active. Audit data should be retained according to your moderation policy, and never exported publicly.
@@ -64,11 +88,19 @@ Both the Java client and the Windows launcher embed this file at build time. It 
 
 In the launcher, go to **Settings → Moderation & service status**. Connect the selected Minecraft account. The configured owner then selects **Verify owner with Microsoft** and completes the displayed device-code flow with the owner Microsoft account. All permissions still come from the API, regardless of what the UI displays.
 
+For this personal account, manually enter that current code at **https://www.microsoft.com/link** if the launcher's generic device-login page rejects it. The existing authentication implementation remains unchanged.
+
 During maintenance, a small **Owner sign-in** action remains available. It requires the same pinned identities; after verification, Global settings includes **Disable maintenance**. There is no unauthenticated bypass button.
 
 ## 4. Website appeals handoff
 
-See [the integration guide](moderation-api.md). Give it and `moderation/website/appeal-example.html` to the website maintainer/Vercel workflow. It does not require an admin token or API secret in the webpage. Replace the public API URL and Turnstile site key, then add the form at `/appeal`. The existing website was not modified by this work.
+See [the integration guide](moderation-api.md). The reusable `moderation/website/appeal-example.html` template needs only the public API URL and Turnstile site key; no admin token or API secret belongs in the webpage.
+
+The current deployment serves `moderation/public/appeal.html` through a Vercel project routing rule named **Plutonium appeals** on **ymca22/plutonium**: exact path `/appeal` rewrites to `https://plutonium-moderation.vercel.app/appeal.html`. This preserves the website's other pages without needing its source. The rule is managed in Vercel and is not stored in the website's source. The form contains only the public site key; `TURNSTILE_SECRET_KEY` is stored in the API's Production environment. When migrating this form into the website source, remove the project routing rule after verifying the replacement.
+
+### Turnstile setup and rotation
+
+In the Cloudflare dashboard, open Turnstile and create a **Managed** widget for hostname `plutoniumclient.vercel.app`. Put the public site key in `moderation/public/appeal.html`. Put the matching secret into **ymca22/plutonium-moderation → Settings → Environment Variables → Production**, named `TURNSTILE_SECRET_KEY`. Redeploy the moderation project after updating its environment. Never put the secret in Git or a public page. See [Cloudflare's setup guide](https://developers.cloudflare.com/turnstile/get-started/).
 
 ## Required production checks
 

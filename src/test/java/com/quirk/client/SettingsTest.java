@@ -35,7 +35,8 @@ class SettingsTest {
     @Test void malformedFileIsBackedUpAndDefaultsSurvive() throws Exception {
         Path p=temp.resolve("settings.json"); Files.writeString(p,"{broken");
         var s=new Settings(); var store=new ConfigStore(p,s); store.load(); assertFalse(store.error.isEmpty());
-        assertTrue(s.module("coordinates").on()); assertFalse(s.module("freecam").on());
+        // Verify persisted defaults independently of the live service's permission lease.
+        assertTrue(s.module("coordinates").enabled.on()); assertFalse(s.module("freecam").enabled.on());
         try(var files=Files.list(temp)) { assertEquals(2,files.count()); }
     }
     @Test void invalidChoiceAndResetAreSafe() {

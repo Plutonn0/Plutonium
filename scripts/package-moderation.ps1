@@ -2,8 +2,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $target = Join-Path $root 'dist/Plutonium-moderation-handoff.zip'
 New-Item -ItemType Directory -Force -Path (Join-Path $root 'dist') | Out-Null
-$files = @('moderation/package.json','moderation/package-lock.json','moderation/vercel.json','moderation/schema.sql','moderation/.env.example','docs/moderation-setup.md','docs/moderation-api.md','docs/feature-ideas.md')
-foreach ($directory in @('api','lib','scripts','test','website')) {
+$files = @('moderation/package.json','moderation/package-lock.json','moderation/vercel.json','moderation/schema.sql','moderation/.env.example','moderation/.gitignore','moderation/.vercelignore','docs/moderation-setup.md','docs/moderation-api.md','docs/feature-ideas.md')
+foreach ($directory in @('api','lib','scripts','test','website','public')) {
     $files += Get-ChildItem -LiteralPath (Join-Path $root "moderation/$directory") -File -Recurse | ForEach-Object { [IO.Path]::GetRelativePath($root,$_.FullName) }
 }
 Add-Type -AssemblyName System.IO.Compression
