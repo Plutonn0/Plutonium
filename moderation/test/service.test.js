@@ -84,3 +84,14 @@ test('appeal submission cannot restore an account or overwrite a pending appeal'
  const appeals=(await pool.query('SELECT * FROM appeals')).rows;assert.equal(appeals.length,1);assert.equal(appeals[0].explanation,'First valid explanation.');
  assert.equal((await pool.query('SELECT disabled FROM accounts WHERE uuid=$1',[users.user])).rows[0].disabled,true);
 });
+
+test('missing appeal verification reports a validation error without calling Cloudflare',async()=>{
+ const {api}=await fixture(undefined,{TURNSTILE_SECRET_KEY:'test-only'});
+ await assert.rejects(api('appeals','POST',{username:'user',explanation:'Please reconsider this restriction.',captcha:''}),e=>e.status===400&&e.message.includes('Complete the verification'));
+});
+test('client heartbeats preserve the last reported launcher version',async()=>{
+ const {api,pool,tokens,users}=await fixture();
+ await api('heartbeat','POST',{kind:'launcher',version:'2.0.1'},tokens.user);
+ await api('heartbeat','POST',{kind:'client',version:'different-client-version'},tokens.user);
+ assert.equal((await pool.query('SELECT launcher_version FROM accounts WHERE uuid=$1',[users.user])).rows[0].launcher_version,'2.0.1');
+});

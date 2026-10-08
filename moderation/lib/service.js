@@ -1,4 +1,5 @@
 import { ApiError, authorize, digest, token, roleFor, verifyOwner, requireOwnerConfig, validateConfig, validateAppeal, features } from './security.js';
+import { dailySeries } from './analytics.js';
 
 export function createService(pool, env, fetcher = fetch, ownerVerifier = verifyOwner) {
   async function upstream(url, options) {
@@ -65,7 +66,8 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
     if (path === 'appeals' && method === 'POST') {
       await limit(`appeal:${ip}`, 3, 3600);
       const appeal = validateAppeal(body);
-      if (!env.TURNSTILE_SECRET_KEY || typeof body.captcha !== 'string' || body.captcha.length > 4096) throw new ApiError(503, 'Website appeals are not configured.');
+      if (!env.TURNSTILE_SECRET_KEY) throw new ApiError(503, 'Website appeals are not configured.');
+      if (typeof body.captcha !== 'string' || !body.captcha.trim() || body.captcha.length > 4096) throw new ApiError(400, 'Complete the verification below the form before sending your appeal.');
       const response = await upstream('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: body.captcha }) });
       const check = await response.json();
       if (!check.success || check.hostname !== env.APPEAL_HOSTNAME || check.action !== 'appeal') throw new ApiError(400, 'Please complete the appeal verification again.');
@@ -80,7 +82,8 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
     if (path === 'me' && method === 'GET') return { username: me.username, uuid: me.uuid, role: me.access, disabled: me.disabled, reason: me.reason, ownerCandidate: me.uuid === env.OWNER_MINECRAFT_UUID };
     if (path === 'heartbeat' && method === 'POST') {
       if (!['launcher', 'client'].includes(body.kind)) throw new ApiError(400, 'Invalid heartbeat kind.');
-      await pool.query('UPDATE accounts SET last_seen=now(),launcher_version=$2 WHERE uuid=$1', [me.uuid, String(body.version ?? '').slice(0,32)]);
+      if (body.kind === 'launcher') await pool.query('UPDATE accounts SET last_seen=now(),launcher_version=$2 WHERE uuid=$1', [me.uuid, String(body.version ?? '').slice(0,32)]);
+      else await pool.query('UPDATE accounts SET last_seen=now() WHERE uuid=$1', [me.uuid]);
       if (body.kind === 'client' && !me.disabled) await pool.query('UPDATE accounts SET client_seen=now() WHERE uuid=$1', [me.uuid]);
       await pool.query('INSERT INTO activity_days(uuid) VALUES($1) ON CONFLICT DO NOTHING', [me.uuid]);
       if (body.kind === 'launcher' && /^[a-f0-9-]{36}$/i.test(body.installationId ?? '')) await pool.query('INSERT INTO installations(id) VALUES($1) ON CONFLICT(id) DO UPDATE SET last_seen=now()', [digest(body.installationId)]);
@@ -124,10 +127,14 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
     if (path === 'admin/stats' && method === 'GET') {
       authorize(me.access,'owner');
       const accounts = (await pool.query("SELECT count(*)::int AS total, count(*) FILTER(WHERE last_seen>now()-interval '5 minutes')::int AS active, count(*) FILTER(WHERE client_seen>now()-interval '2 minutes' AND NOT disabled)::int AS playing, count(*) FILTER(WHERE disabled)::int AS disabled FROM accounts")).rows[0];
-      const installs = (await pool.query("SELECT count(*)::int AS total, count(*) FILTER(WHERE first_seen>now()-interval '7 days')::int AS this_week, count(*) FILTER(WHERE first_seen<=now()-interval '7 days' AND first_seen>now()-interval '14 days')::int AS last_week FROM installations")).rows[0];
+      const installs = (await pool.query("SELECT count(*)::int AS total, count(*) FILTER(WHERE first_seen>=CURRENT_DATE-6)::int AS this_week, count(*) FILTER(WHERE first_seen<CURRENT_DATE-6 AND first_seen>=CURRENT_DATE-13)::int AS last_week FROM installations")).rows[0];
       const weekly = (await pool.query("SELECT count(DISTINCT uuid) FILTER(WHERE day>=CURRENT_DATE-6)::int AS this_week, count(DISTINCT uuid) FILTER(WHERE day<CURRENT_DATE-6 AND day>=CURRENT_DATE-13)::int AS last_week FROM activity_days")).rows[0];
       const pending = (await pool.query("SELECT count(*)::int AS count FROM appeals WHERE status='pending'")).rows[0].count;
-      return { accounts, installs, weekly, pendingAppeals: pending, generatedAt: new Date().toISOString(), definition: 'Active: heartbeat within 5 minutes. Playing: client heartbeat within 2 minutes. Installs: unique reported installation IDs, not verified people. Weeks are rolling UTC windows.' };
+      const activity = (await pool.query('SELECT day,count(*)::int AS count FROM activity_days WHERE day>=CURRENT_DATE-13 GROUP BY day ORDER BY day')).rows;
+      const added = (await pool.query('SELECT first_seen::date AS day,count(*)::int AS count FROM installations WHERE first_seen>=CURRENT_DATE-13 GROUP BY first_seen::date ORDER BY day')).rows;
+      const versions = (await pool.query("SELECT launcher_version AS version,count(*)::int AS count FROM accounts WHERE last_seen>=CURRENT_DATE-6 AND launcher_version<>'' GROUP BY launcher_version ORDER BY count(*) DESC LIMIT 8")).rows;
+      const reviews = (await pool.query("SELECT count(*) FILTER(WHERE status='accepted')::int AS accepted,count(*) FILTER(WHERE status='rejected')::int AS rejected FROM appeals WHERE reviewed_at>=CURRENT_DATE-6")).rows[0];
+      return { accounts, installs, weekly, pendingAppeals: pending, daily: dailySeries(activity, added), versions, reviews, generatedAt: new Date().toISOString(), definition: 'Active accounts: seen within 5 minutes. Playing: client heartbeat within 2 minutes. Installs count reported installation IDs, not people or downloads. Weeks compare the latest 7 UTC calendar days (including today) with the preceding 7. Today is partial; collection began when this service launched.' };
     }
     if (path === 'admin/users' && method === 'GET') {
       const after=body.after??'',search=body.search??'';

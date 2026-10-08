@@ -316,6 +316,23 @@ public sealed class LibraryTests : IDisposable
                         using var output = File.Create(Path.Combine(preview, $"launcher-{size.Width:0}.png")); encoder.Save(output);
                     }
                 }
+                var analyticsType = typeof(MainWindow).Assembly.GetType("PlutoniumLauncher.ModerationAnalytics")!;
+                var analyticsData = System.Text.Json.JsonSerializer.SerializeToElement(new {
+                    accounts=new {active=12,playing=8,total=126,disabled=3}, installs=new {total=150,this_week=25,last_week=20},
+                    weekly=new {this_week=48,last_week=40}, pendingAppeals=2,
+                    daily=Enumerable.Range(0,14).Select(i=>new {day=new DateTime(2026,9,25).AddDays(i).ToString("yyyy-MM-dd"),active=i*2,installs=i%4}),
+                    versions=new[]{new {version="2.0.1",count=48}}, reviews=new {accepted=4,rejected=1},
+                    definition="Preview fixture · UTC calendar days · today is partial"
+                });
+                var analytics=(System.Windows.FrameworkElement)analyticsType.GetMethod("Build",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)!.Invoke(null,new object[]{analyticsData})!;
+                analytics.Measure(new System.Windows.Size(940,1100));analytics.Arrange(new System.Windows.Rect(0,0,940,1100));analytics.UpdateLayout();
+                Assert.True(analytics.DesiredSize.Width<=940);
+                var analyticsPreview=Environment.GetEnvironmentVariable("PLUTONIUM_UI_PREVIEW_DIR");
+                if(analyticsPreview is not null) {
+                    var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap(1880,2200,192,192,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(analytics);
+                    var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                    using var output=File.Create(Path.Combine(analyticsPreview,"moderation-analytics.png"));encoder.Save(output);
+                }
                 var splash = new SplashWindow();
                 splash.SetStatus("Checking client files…");
                 Assert.Contains("Checking", ((System.Windows.Controls.TextBlock)splash.FindName("StatusText")).Text);

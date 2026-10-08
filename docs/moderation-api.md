@@ -1,6 +1,6 @@
 # Plutonium API / Vercel website handoff
 
-Base URL after deployment: `https://YOUR-API-PROJECT.vercel.app/api/v1`.
+Production base URL: `https://plutonium-moderation.vercel.app/api/v1`.
 All responses are JSON with `Cache-Control: no-store`. Errors have `{ "error": "safe message", "requestId": "..." }`.
 
 ## Public website appeal
@@ -50,5 +50,6 @@ Service authorization: `Authorization: Bearer <opaque session token>`. Never put
 - Running client: valid client heartbeat within 2 minutes. Disabled accounts are not counted as playing.
 - Total accounts: distinct verified Minecraft UUIDs that have connected since service deployment.
 - Installs: distinct hashed, randomly generated launcher installation IDs reported by authenticated accounts. Reinstallation/reset can create a new ID; this is not a verified count of people or devices.
-- Weekly activity: distinct accounts over current and previous rolling UTC seven-day windows. When the previous count is zero, display “no previous baseline” rather than an infinite percentage.
+- Weekly activity and new installations: latest seven UTC calendar days including today, compared with the preceding seven. Today is partial. When the previous count is zero, display “no previous baseline” rather than an infinite percentage.
+- `admin/stats` includes `daily`: 14 ascending UTC dates with `active` and `installs` counts; missing days are zero-filled. `versions` counts recently active accounts by last reported launcher version. `reviews` contains accepted/rejected appeal counts for the latest seven UTC calendar days. None of these counts invent historical activity before deployment.
 - No email addresses, passwords, hardware fingerprints, world coordinates, server addresses or chat messages are collected for these metrics. Minecraft access tokens are used transiently to verify profiles, never persisted. Publish this disclosure in your site privacy notice before activation.

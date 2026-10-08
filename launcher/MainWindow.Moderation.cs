@@ -19,7 +19,8 @@ public partial class MainWindow
     private bool _maintenance;
     private bool _policyAvailable;
     private HashSet<string> _disabledFeatures = [];
-    private TextBlock? _liveStats;
+    private StackPanel? _liveStats;
+    private TextBlock? _statsStatus;
 
     private void InitializeModeration()
     {
@@ -111,7 +112,8 @@ public partial class MainWindow
     {
         _libraryPage.Tag="moderation"; _libraryPage.Children.Clear(); _liveStats=null;
         var content=new StackPanel(); _libraryPage.Children.Add(Scroll(content));
-        content.Children.Add(Label("Moderation",28));
+        content.Children.Add(Label("CONTROL CENTER",11,true));
+        content.Children.Add(Label("Moderation",30));
         if (!ModerationService.Configured)
         {
             content.Children.Add(Label("Server setup required",18));
@@ -147,29 +149,48 @@ public partial class MainWindow
             }));
         }
         if (_moderation.Role is not ("owner" or "admin")) { content.Children.Add(Label("This account has no moderation permissions.",12,true)); return; }
-        if (_moderation.Role=="owner") { _liveStats=Label("Loading live statistics…",13); content.Children.Add(Card(_liveStats)); await RefreshModerationStatsAsync(); }
+        if (_moderation.Role=="owner")
+        {
+            _statsStatus=Label("Loading live statistics…",12,true); content.Children.Add(_statsStatus);
+            _liveStats=new StackPanel(); content.Children.Add(_liveStats);
+            await RefreshModerationStatsAsync();
+        }
         var tabs=new WrapPanel();
-        tabs.Children.Add(ActionButton("REFRESH",ShowModerationAsync));
+        tabs.Children.Add(ActionButton(_moderation.Role=="owner"?"OVERVIEW":"REFRESH",ShowModerationAsync));
         tabs.Children.Add(ActionButton("USERS",()=>ShowModerationUsersAsync(content)));
         tabs.Children.Add(ActionButton("APPEALS",()=>ShowAppealsAsync(content)));
         if(_moderation.Role=="owner") { tabs.Children.Add(ActionButton("GLOBAL SETTINGS",()=>ShowRemoteConfigAsync(content))); tabs.Children.Add(ActionButton("AUDIT LOG",()=>ShowAuditAsync(content))); }
-        content.Children.Add(tabs);
+        if (_statsStatus is not null && content.Children.Contains(_statsStatus)) content.Children.Insert(content.Children.IndexOf(_statsStatus),tabs);
+        else content.Children.Add(tabs);
     }
     private async Task RefreshModerationStatsAsync()
     {
-        var data=await _moderation.RequestAsync("admin/stats",HttpMethod.Get,cancellationToken:_moderationLifetime.Token);
-        if (_liveStats is null) return;
-        var a=data.GetProperty("accounts"); var i=data.GetProperty("installs");var w=data.GetProperty("weekly");
-        static string Growth(JsonElement value) { var before=value.GetProperty("last_week").GetInt32();var current=value.GetProperty("this_week").GetInt32(); return before==0 ? $"{current} this week · no previous baseline" : $"{current} this week · {(current-before)*100.0/before:+0.0;-0.0;0}% vs previous week"; }
-        _liveStats.Text=$"Active accounts: {a.GetProperty("active")}    Running clients: {a.GetProperty("playing")}    Accounts seen: {a.GetProperty("total")}\nReported installations: {i.GetProperty("total")} · {Growth(i)}\nWeekly active accounts: {Growth(w)}\nDisabled accounts: {a.GetProperty("disabled")}    Pending appeals: {data.GetProperty("pendingAppeals")}\n\n{data.GetProperty("definition").GetString()}\nRefreshes every 30 seconds.";
+        var target = _liveStats;
+        if (target is null) return;
+        try
+        {
+            var data=await _moderation.RequestAsync("admin/stats",HttpMethod.Get,cancellationToken:_moderationLifetime.Token);
+            if (!ReferenceEquals(target,_liveStats)) return;
+            target.Children.Clear(); target.Children.Add(ModerationAnalytics.Build(data));
+            if (_statsStatus is not null) _statsStatus.Text="LIVE OVERVIEW  ·  Updated "+DateTimeOffset.Parse(data.GetProperty("generatedAt").GetString()!).ToLocalTime().ToString("HH:mm:ss")+"  ·  Refreshes every 30 seconds";
+        }
+        catch (OperationCanceledException) when (_moderationLifetime.IsCancellationRequested) { }
+        catch
+        {
+            if (ReferenceEquals(target,_liveStats) && _statsStatus is not null)
+                _statsStatus.Text="Statistics could not refresh. Any values below are from the last successful update. Reconnect if your owner session expired.";
+        }
     }
+
     private void ClearModerationDetail(StackPanel content)
     {
         foreach(var item in content.Children.OfType<FrameworkElement>().Where(v=>Equals(v.Tag,"moderation-detail")).ToArray()) content.Children.Remove(item);
     }
     private StackPanel ModerationDetail(StackPanel content)
     {
-        ClearModerationDetail(content);var detail=new StackPanel {Tag="moderation-detail"}; content.Children.Add(detail);return detail;
+        if (_liveStats is not null) _liveStats.Visibility=Visibility.Collapsed;
+        if (_statsStatus is not null) _statsStatus.Visibility=Visibility.Collapsed;
+        ClearModerationDetail(content);var detail=new StackPanel {Tag="moderation-detail", Margin=new Thickness(0,20,0,0)}; content.Children.Add(detail);return detail;
     }
     private async Task ShowModerationUsersAsync(StackPanel content,string after="",string query="")
     {
@@ -178,6 +199,7 @@ public partial class MainWindow
         var search=new TextBox { Text=query, MaxLength=16, Margin=new Thickness(0,10,0,10), ToolTip="Search all accounts by username" };detail.Children.Add(search);
         detail.Children.Add(ActionButton("SEARCH ALL ACCOUNTS",()=>ShowModerationUsersAsync(content,"",search.Text.Trim())));
         var rows=new StackPanel();detail.Children.Add(rows);
+        if(data.GetProperty("users").GetArrayLength()==0) rows.Children.Add(Card(Label("No accounts match this search.",14,true)));
         foreach(var user in data.GetProperty("users").EnumerateArray())
         {
             var uuid=user.GetProperty("uuid").GetString();var name=user.GetProperty("username").GetString()!;var disabled=user.GetProperty("disabled").GetBoolean();var role=user.GetProperty("role").GetString();
@@ -202,6 +224,8 @@ public partial class MainWindow
     private async Task ShowAppealsAsync(StackPanel content)
     {
         var data=await _moderation.RequestAsync("admin/appeals",HttpMethod.Get);var detail=ModerationDetail(content);
+        detail.Children.Add(Label("Appeal inbox",22));
+        detail.Children.Add(Label("Pending requests appear first. Accepting a request restores client access immediately.",12,true));
         foreach(var appeal in data.GetProperty("appeals").EnumerateArray())
         {
             var row=new StackPanel();row.Children.Add(Label(appeal.GetProperty("username").GetString()+" · "+appeal.GetProperty("status").GetString(),16));row.Children.Add(Label(appeal.GetProperty("explanation").GetString()!,12,true));
@@ -241,6 +265,8 @@ public partial class MainWindow
     private async Task ShowAuditAsync(StackPanel content)
     {
         var data=await _moderation.RequestAsync("admin/audit",HttpMethod.Get);var detail=ModerationDetail(content);
+        detail.Children.Add(Label("Activity log",22));
+        if(data.GetProperty("events").GetArrayLength()==0) detail.Children.Add(Card(Label("No moderation actions recorded yet.",14,true)));
         foreach(var entry in data.GetProperty("events").EnumerateArray())detail.Children.Add(Card(Label($"{entry.GetProperty("created_at")} · {entry.GetProperty("action")}\nActor: {entry.GetProperty("actor")}\nTarget: {entry.GetProperty("target")}",12,true)));
     }
 }
