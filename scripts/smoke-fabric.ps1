@@ -18,7 +18,7 @@ foreach($lib in $profile.libraries){
     if(-not(Test-Path -LiteralPath $path)){Invoke-WebRequest -Uri ($lib.url+$relative) -OutFile $path}
     $cp+=$path
 }
-Copy-Item -LiteralPath (Join-Path $root 'fabric/build/libs/plutonium-client-fabric-2.0.1.jar') -Destination (Join-Path $run 'mods/quirk-client.jar')
+Copy-Item -LiteralPath (Join-Path $root 'fabric/build/libs/plutonium-client-fabric-2.0.2.jar') -Destination (Join-Path $run 'mods/quirk-client.jar')
 $version=Get-Content -Raw -LiteralPath (Join-Path $root 'build/game/version.json') | ConvertFrom-Json
 $arguments=@('-Xmx3G','-Dquirk.smoke=true','-Djava.awt.headless=true','-cp',($cp -join ';'),$profile.mainClass,
     '--username','PlutoniumSmoke','--uuid','00000000-0000-0000-0000-000000000042','--accessToken','0','--version','1.21.11',

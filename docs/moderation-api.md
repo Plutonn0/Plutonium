@@ -32,6 +32,7 @@ An appeal alone **does not verify account ownership**. It enters the review queu
 | `POST /heartbeat` | `{kind:"launcher"|"client",version,installationId?}`; returns allowed/reason/config/120s lease | Service bearer |
 | `POST /owner/start` | Begin Microsoft device-code verification | Pinned owner Minecraft UUID |
 | `POST /owner/poll` | Poll no faster than returned interval | Same owner session |
+| `POST /admin/maintenance/stop` | Disable maintenance only; preserve reason and feature switches; audited | Admin/owner |
 | `GET /admin/stats` | Active accounts/clients, installs, weekly activity, restrictions, pending appeals | Owner |
 | `GET /admin/users?after=UUID&search=NAME` | Accounts in stable UUID order, 100 per page; optional username search, response `nextCursor` | Admin/owner |
 | `POST /admin/restriction` | `{uuid,disabled,reason}` | Admin/owner; protected targets denied |

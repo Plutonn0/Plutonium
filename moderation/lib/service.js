@@ -45,8 +45,9 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
     await audit(db, actor, disabled ? 'account.disable' : 'account.restore', uuid, { reason });
   }
   return async function handle(path, method, body, bearer, ip = 'unknown') {
-    await limit(`ip:${ip}`, 180);
+    // Public configuration polling has no session or mutation side effects.
     if (path === 'config' && method === 'GET') return configuration();
+    await limit(`ip:${ip}`, 600);
     if (path === 'session' && method === 'POST') {
       await limit(`login:${ip}`, 12);
       if (typeof body.minecraftToken !== 'string' || body.minecraftToken.length > 8192 || !body.minecraftToken) throw new ApiError(400, 'A Minecraft session is required.');
@@ -88,7 +89,7 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
       await pool.query('INSERT INTO activity_days(uuid) VALUES($1) ON CONFLICT DO NOTHING', [me.uuid]);
       if (body.kind === 'launcher' && /^[a-f0-9-]{36}$/i.test(body.installationId ?? '')) await pool.query('INSERT INTO installations(id) VALUES($1) ON CONFLICT(id) DO UPDATE SET last_seen=now()', [digest(body.installationId)]);
       const config = await configuration();
-      return { allowed: !me.disabled, reason: me.reason, appealUrl: 'https://plutoniumclient.vercel.app/appeal', ...config, leaseSeconds: 120 };
+      return { allowed: !me.disabled, reason: me.reason, role: me.access, ownerCandidate: me.uuid===env.OWNER_MINECRAFT_UUID, appealUrl: 'https://plutoniumclient.vercel.app/appeal', ...config, leaseSeconds: 120 };
     }
     if (path === 'owner/start' && method === 'POST') {
       requireOwnerConfig(env);
@@ -124,6 +125,14 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
     }
     if (!path.startsWith('admin/')) throw new ApiError(404, 'Endpoint not found.');
     authorize(me.access, 'admin');
+    if (path === 'admin/maintenance/stop' && method === 'POST') return mutation(bearer, 'admin', async (db, actor) => {
+      // A narrow recovery action: admins cannot alter other global settings.
+      const current=(await db.query('SELECT value FROM configuration WHERE id=1 FOR UPDATE')).rows[0];
+      if(!current) throw new ApiError(503,'Moderation database needs migration.');
+      await db.query('UPDATE configuration SET value=$1,revision=revision+1 WHERE id=1',[JSON.stringify({...current.value,maintenance:false})]);
+      await audit(db,actor,'maintenance.stop','global');
+      return configuration(db);
+    });
     if (path === 'admin/stats' && method === 'GET') {
       authorize(me.access,'owner');
       const accounts = (await pool.query("SELECT count(*)::int AS total, count(*) FILTER(WHERE last_seen>now()-interval '5 minutes')::int AS active, count(*) FILTER(WHERE client_seen>now()-interval '2 minutes' AND NOT disabled)::int AS playing, count(*) FILTER(WHERE disabled)::int AS disabled FROM accounts")).rows[0];

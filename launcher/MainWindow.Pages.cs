@@ -16,6 +16,7 @@ public partial class MainWindow
     }
     private void Navigate(string page)
     {
+        if (_maintenance && page!="moderation") { _maintenanceMenuOpen=false; _maintenancePanel.Visibility=Visibility.Visible; return; }
         var pages = new Dictionary<string, FrameworkElement> { ["play"] = PlayPage, ["account"] = AccountsOverlay,
             ["installed"] = UpdatesOverlay, ["files"] = FilesPage, ["theme"] = ThemePage, ["mods"] = _modsPage,
             ["library"] = _libraryPage };

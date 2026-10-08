@@ -12,11 +12,14 @@ public partial class MainWindow
     private readonly ModerationService _moderation = new();
     private readonly Border _maintenancePanel = new() { Background = new SolidColorBrush(Color.FromRgb(12,12,14)), Visibility = Visibility.Collapsed };
     private readonly TextBlock _maintenanceMessage = new() { TextWrapping = TextWrapping.Wrap, FontSize = 15, Foreground = Brushes.LightGray, Margin = new Thickness(0,20,0,20) };
-    private readonly DispatcherTimer _moderationTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly DispatcherTimer _moderationTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly CancellationTokenSource _moderationLifetime = new();
     private bool _moderationPolling;
     private bool _serviceConnected;
     private bool _maintenance;
+    private bool _maintenanceMenuOpen;
+    private DateTimeOffset _nextServiceHeartbeat;
+    private TextBlock _maintenanceTitle = null!;
     private bool _policyAvailable;
     private HashSet<string> _disabledFeatures = [];
     private StackPanel? _liveStats;
@@ -25,13 +28,13 @@ public partial class MainWindow
     private void InitializeModeration()
     {
         var content = new StackPanel { MaxWidth = 600, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(36) };
-        content.Children.Add(Label("PLUTONIUM",12,true)); content.Children.Add(Label("We'll be back soon",32)); content.Children.Add(_maintenanceMessage);
+        content.Children.Add(Label("PLUTONIUM",12,true)); _maintenanceTitle=Label("MAINTENANCE MODE",32); content.Children.Add(_maintenanceTitle); content.Children.Add(_maintenanceMessage);
         content.Children.Add(ActionButton("CHECK AGAIN", RefreshPolicyAsync));
-        content.Children.Add(ActionButton("OWNER SIGN-IN", async () =>
+        content.Children.Add(ActionButton("OPEN ADMIN MENU", async () =>
         {
-            await ConnectModerationAsync(true);
-            if (!_moderation.OwnerCandidate) throw new InvalidOperationException("Only the configured owner can manage maintenance.");
-            _maintenancePanel.Visibility = Visibility.Collapsed; Navigate("moderation"); await ShowModerationAsync();
+            await ConnectModerationAsync();
+            if (_moderation.Role is not ("admin" or "owner") && !_moderation.OwnerCandidate) throw new InvalidOperationException("This account has no maintenance management permissions.");
+            _maintenanceMenuOpen=true; _maintenancePanel.Visibility = Visibility.Collapsed; Navigate("moderation"); await ShowModerationAsync();
         }));
         _maintenancePanel.Child = content; Grid.SetColumnSpan(_maintenancePanel,2); Panel.SetZIndex(_maintenancePanel,20); LauncherBody.Children.Add(_maintenancePanel);
         _moderationTimer.Tick += async (_,_) =>
@@ -46,9 +49,13 @@ public partial class MainWindow
                     await _moderation.ConnectAsync(_session,_moderationLifetime.Token);
                 }
                 await RefreshPolicyAsync();
-                if (_moderation.HasSession && _config is not null)
-                    await _moderation.RequestAsync("heartbeat",HttpMethod.Post,new { kind="launcher", version=CurrentLauncherVersion, installationId=_config.InstallationId },_moderationLifetime.Token);
-                if (_liveStats is { IsVisible:true } && _moderation.Role == "owner") await RefreshModerationStatsAsync();
+                if (DateTimeOffset.UtcNow>=_nextServiceHeartbeat)
+                {
+                    _nextServiceHeartbeat=DateTimeOffset.UtcNow.AddSeconds(30);
+                    if (_moderation.HasSession && _config is not null)
+                        await _moderation.RequestAsync("heartbeat",HttpMethod.Post,new { kind="launcher", version=CurrentLauncherVersion, installationId=_config.InstallationId },_moderationLifetime.Token);
+                    if (_liveStats is { IsVisible:true } && _moderation.Role == "owner") await RefreshModerationStatsAsync();
+                }
             }
             catch (OperationCanceledException) { }
             catch { /* RefreshPolicy displays service failures. Keep polling without dumping credentials into logs. */ }
@@ -62,17 +69,22 @@ public partial class MainWindow
         try
         {
             var policy = await _moderation.RequestAsync("config",HttpMethod.Get,cancellationToken:_moderationLifetime.Token);
+            var wasMaintenance=_maintenance;
             _maintenance=policy.GetProperty("maintenance").GetBoolean(); _policyAvailable=true;
+            if (!wasMaintenance && _maintenance || !_maintenance) _maintenanceMenuOpen=false;
+            _maintenanceTitle.Text="MAINTENANCE MODE";
             _disabledFeatures=policy.GetProperty("disabledFeatures").EnumerateArray().Select(v=>v.GetString()!).ToHashSet();
             _maintenanceMessage.Text=policy.GetProperty("message").GetString();
             if (_moderation.HasSession) await _moderation.RefreshIdentityAsync(_moderationLifetime.Token);
             else _moderation.Reset();
-            _maintenancePanel.Visibility=_maintenance && _moderation.Role!="owner" ? Visibility.Visible:Visibility.Collapsed;
+            var canManage=_moderation.Role is "admin" or "owner" || _moderation.OwnerCandidate;
+            _maintenancePanel.Visibility=_maintenance && !(_maintenanceMenuOpen && canManage && _libraryPage.IsVisible && Equals(_libraryPage.Tag,"moderation")) ? Visibility.Visible:Visibility.Collapsed;
         }
         catch (OperationCanceledException) when (_moderationLifetime.IsCancellationRequested) { }
         catch
         {
             _policyAvailable=false;
+            _maintenanceTitle.Text="SERVICE UNAVAILABLE";
             _maintenanceMessage.Text="We couldn't verify the launcher status. Check your connection and try again. Accounts and saved files remain on this PC.";
             _maintenancePanel.Visibility=Visibility.Visible;
         }
@@ -149,6 +161,11 @@ public partial class MainWindow
             }));
         }
         if (_moderation.Role is not ("owner" or "admin")) { content.Children.Add(Label("This account has no moderation permissions.",12,true)); return; }
+        if (_maintenance) content.Children.Add(ActionButton("STOP MAINTENANCE",async()=>
+        {
+            await _moderation.RequestAsync("admin/maintenance/stop",HttpMethod.Post,new {});
+            _maintenanceMenuOpen=false; await RefreshPolicyAsync(); await ShowModerationAsync();
+        }));
         if (_moderation.Role=="owner")
         {
             _statsStatus=Label("Loading live statistics…",12,true); content.Children.Add(_statsStatus);

@@ -333,6 +333,15 @@ public sealed class LibraryTests : IDisposable
                     var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
                     using var output=File.Create(Path.Combine(analyticsPreview,"moderation-analytics.png"));encoder.Save(output);
                 }
+                typeof(MainWindow).GetField("_maintenance",reflection)!.SetValue(window,true);
+                typeof(MainWindow).GetField("_maintenanceMenuOpen",reflection)!.SetValue(window,true);
+                typeof(MainWindow).GetMethod("Navigate",reflection)!.Invoke(window,new object[]{"play"});
+                var maintenancePanel=(System.Windows.Controls.Border)typeof(MainWindow).GetField("_maintenancePanel",reflection)!.GetValue(window)!;
+                Assert.Equal(System.Windows.Visibility.Visible,maintenancePanel.Visibility);
+                Assert.False((bool)typeof(MainWindow).GetField("_maintenanceMenuOpen",reflection)!.GetValue(window)!);
+                Assert.Equal("MAINTENANCE MODE",((System.Windows.Controls.TextBlock)typeof(MainWindow).GetField("_maintenanceTitle",reflection)!.GetValue(window)!).Text);
+                typeof(MainWindow).GetField("_maintenance",reflection)!.SetValue(window,false);
+                maintenancePanel.Visibility=System.Windows.Visibility.Collapsed;
                 var splash = new SplashWindow();
                 splash.SetStatus("Checking client files…");
                 Assert.Contains("Checking", ((System.Windows.Controls.TextBlock)splash.FindName("StatusText")).Text);

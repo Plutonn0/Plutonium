@@ -95,3 +95,16 @@ test('client heartbeats preserve the last reported launcher version',async()=>{
  await api('heartbeat','POST',{kind:'client',version:'different-client-version'},tokens.user);
  assert.equal((await pool.query('SELECT launcher_version FROM accounts WHERE uuid=$1',[users.user])).rows[0].launcher_version,'2.0.1');
 });
+
+test('admins can stop maintenance without changing other global settings',async()=>{
+ const {api,tokens,pool}=await fixture();const before=await api('config','GET',{});
+ await api('admin/config','PUT',{...before,maintenance:true,message:'Scheduled work',disabledFeatures:['fly']},tokens.owner);
+ await assert.rejects(api('admin/maintenance/stop','POST',{},tokens.user),e=>e.status===403);
+ await assert.rejects(api('admin/maintenance/stop','POST',{},null),e=>e.status===401);
+ const result=await api('admin/maintenance/stop','POST',{message:'not allowed',disabledFeatures:[]},tokens.admin);
+ assert.equal(result.maintenance,false);assert.equal(result.message,'Scheduled work');assert.deepEqual(result.disabledFeatures,['fly']);
+ assert.equal(result.revision,before.revision+2);
+ assert.equal((await pool.query("SELECT action FROM audit WHERE action='maintenance.stop'")).rows.length,1);
+ await api('admin/role','POST',{uuid:'b'.repeat(32),role:'user'},tokens.owner);
+ await assert.rejects(api('admin/maintenance/stop','POST',{},tokens.admin),e=>e.status===403);
+});
