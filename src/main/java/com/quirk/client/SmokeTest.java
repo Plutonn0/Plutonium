@@ -78,6 +78,18 @@ public final class SmokeTest {
             } else if(stage==2) {
                 step++;
                 if(step==60) {
+                    var probe=new BlockPos(12,-60,12);
+                    var original=mc.level.getBlockState(probe);
+                    int observed=Quirk.changedBlocksForTest(0,0);
+                    mc.level.setBlock(probe,net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(),3);
+                    check(Quirk.changedBlocksForTest(0,0)==observed+1,"SusChunk observes placed blocks through the engine hook without another player");
+                    mc.level.setBlock(probe,original,3);
+                    check(Quirk.changedBlocksForTest(0,0)==observed,"SusChunk removes restored/prediction-rolled-back changes");
+                    var ground=new BlockPos(12,-61,12);var groundState=mc.level.getBlockState(ground);
+                    check(!groundState.isAir(),"SusChunk mining fixture starts with solid terrain");
+                    mc.level.setBlock(ground,net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),3);
+                    check(Quirk.changedBlocksForTest(0,0)==observed+1,"SusChunk observes missing blocks from mining");
+                    mc.level.setBlock(ground,groundState,3);
                     screenshot("01-overlay.png");
                     check(Quirk.fullbright(),"Fullbright toggle reaches the lightmap hook");
                     check(net.minecraft.client.renderer.LightTexture.getBrightness(mc.level.dimensionType(),0)==1,

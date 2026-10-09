@@ -2,47 +2,38 @@ package com.quirk.client;
 
 import java.util.*;
 
-/** Session-local movement observations; it cannot infer activity in chunks not observed by this client. */
+/** Bounded session-local block deltas, not guesses about terrain generation or player presence. */
 public final class SusChunkTracker {
-    private static final int MAX_TRACKED_CHUNKS = 256;
-    private final Map<UUID, Position> players = new HashMap<>();
-    private final Map<ChunkKey, Integer> activity = new HashMap<>();
-
-    private record Position(double x, double z) {}
+    private static final int MAX_CHUNKS = 256, MAX_BLOCKS_PER_CHUNK = 1024;
+    private final LinkedHashMap<ChunkKey, LinkedHashMap<Block, Change>> chunks = new LinkedHashMap<>(16,.75f,true);
     private record ChunkKey(int x, int z) {}
+    public record Block(int x, int y, int z) {}
+    private record Change(int original, int current) {}
+    public record Chunk(int x, int z, int changedBlocks) {}
 
-    public record Chunk(int x, int z, int movementSamples) {}
-
-    public void observe(UUID player, double x, double z) {
-        if (player == null || !Double.isFinite(x) || !Double.isFinite(z)) return;
-        Position current = new Position(x, z);
-        Position previous = players.put(player, current);
-        if (previous == null || Math.hypot(x - previous.x, z - previous.z) < 0.75) return;
-
-        ChunkKey chunk = new ChunkKey(Math.floorDiv((int)Math.floor(x), 16), Math.floorDiv((int)Math.floor(z), 16));
-        activity.merge(chunk, 1, Integer::sum);
-        if (activity.size() > MAX_TRACKED_CHUNKS) {
-            ChunkKey leastActive = activity.entrySet().stream()
-                .min(Comparator.comparingInt(Map.Entry::getValue))
-                .orElseThrow().getKey();
-            activity.remove(leastActive);
-        }
+    public void changed(int x, int y, int z, int before, int after) {
+        if (before == after) return;
+        var key = new ChunkKey(Math.floorDiv(x,16),Math.floorDiv(z,16));
+        var blocks = chunks.computeIfAbsent(key, ignored -> new LinkedHashMap<>(16,.75f,true));
+        var pos = new Block(x,y,z);
+        var previous = blocks.get(pos);
+        int original = previous == null ? before : previous.original;
+        if (original == after) blocks.remove(pos);
+        else blocks.put(pos,new Change(original,after));
+        if (blocks.isEmpty()) chunks.remove(key);
+        else if (blocks.size() > MAX_BLOCKS_PER_CHUNK) blocks.pollFirstEntry();
+        if (chunks.size() > MAX_CHUNKS) chunks.pollFirstEntry();
     }
-
-    public List<Chunk> busiest(int minimumSamples, int limit) {
+    public List<Chunk> busiest(int minimum, int limit) {
         if (limit <= 0) return List.of();
-        return activity.entrySet().stream()
-            .filter(entry -> entry.getValue() >= minimumSamples)
-            .sorted(Map.Entry.<ChunkKey, Integer>comparingByValue().reversed()
-                .thenComparingInt(entry -> entry.getKey().x)
-                .thenComparingInt(entry -> entry.getKey().z))
-            .limit(limit)
-            .map(entry -> new Chunk(entry.getKey().x, entry.getKey().z, entry.getValue()))
-            .toList();
+        return chunks.entrySet().stream().filter(e -> e.getValue().size() >= Math.max(1,minimum))
+            .map(e -> new Chunk(e.getKey().x,e.getKey().z,e.getValue().size()))
+            .sorted(Comparator.comparingInt(Chunk::changedBlocks).reversed().thenComparingInt(Chunk::x).thenComparingInt(Chunk::z))
+            .limit(limit).toList();
     }
-
-    public void clear() {
-        players.clear();
-        activity.clear();
+    public List<Block> blocks(int chunkX,int chunkZ,int limit) {
+        var changes=chunks.get(new ChunkKey(chunkX,chunkZ));
+        return changes==null || limit<=0 ? List.of() : changes.keySet().stream().limit(limit).toList();
     }
+    public void clear() { chunks.clear(); }
 }

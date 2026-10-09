@@ -31,7 +31,7 @@ public final class ClientBuilder {
                     "net/minecraft/world/entity/Entity.class", "net/minecraft/client/player/KeyboardInput.class", "net/minecraft/client/renderer/GameRenderer.class",
                     "net/minecraft/client/renderer/LightTexture.class", "net/minecraft/client/sounds/SoundBufferLibrary.class", "net/minecraft/world/level/block/state/BlockBehaviour$BlockStateBase.class",
                     "net/minecraft/client/renderer/LevelRenderer.class", "net/minecraft/client/renderer/entity/EntityRenderer.class", "net/minecraft/client/renderer/entity/player/AvatarRenderer.class",
-                    "net/minecraft/client/multiplayer/ClientPacketListener.class", "net/minecraft/client/renderer/block/LiquidBlockRenderer.class")) {
+                    "net/minecraft/world/level/chunk/LevelChunk.class", "net/minecraft/client/multiplayer/ClientPacketListener.class", "net/minecraft/client/renderer/block/LiquidBlockRenderer.class")) {
                 byte[] bytes = entries.get(name);
                 if (bytes == null) throw new IllegalStateException("Missing integration class: " + name);
                 entries.put(name, patch(bytes, frameLoader)); count++;
@@ -78,6 +78,13 @@ public final class ClientBuilder {
         ClassNode c = new ClassNode(); new ClassReader(bytes).accept(c, 0);
         int hooks = 0;
         for (MethodNode m : c.methods) {
+            if(c.name.equals("net/minecraft/world/level/chunk/LevelChunk") && m.name.equals("setBlockState") && m.desc.equals("(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Lnet/minecraft/world/level/block/state/BlockState;")) {
+                for(var ins:m.instructions.toArray())if(ins.getOpcode()==Opcodes.ARETURN){
+                    InsnList h=new InsnList();h.add(new InsnNode(Opcodes.DUP));h.add(new VarInsnNode(Opcodes.ALOAD,0));h.add(new VarInsnNode(Opcodes.ALOAD,1));
+                    h.add(call("blockChanged","(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/chunk/LevelChunk;Lnet/minecraft/core/BlockPos;)V"));m.instructions.insertBefore(ins,h);
+                } hooks++;
+            }
+
             String owner = c.name;
             if(owner.endsWith("/Minecraft")&&m.name.equals("stop")&&m.desc.equals("()V")){
                 m.instructions.insert(call("saveVideoSettings","()V"));hooks++;

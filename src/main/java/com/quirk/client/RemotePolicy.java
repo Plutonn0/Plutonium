@@ -69,7 +69,7 @@ public final class RemotePolicy {
                 var body=new JsonObject();body.addProperty("minecraftToken",minecraftToken);var auth=post("session",body,false);
                 session=auth.get("token").getAsString();sessionUntil=System.nanoTime()+1_600_000_000_000L;
             }
-            var body=new JsonObject();body.addProperty("kind","client");body.addProperty("version","2.0.2");var policy=post("heartbeat",body,true);
+            var body=new JsonObject();body.addProperty("kind","client");body.addProperty("version","2.0.5");var policy=post("heartbeat",body,true);
             var blocked=new HashSet<String>();for(var value:policy.getAsJsonArray("disabledFeatures"))blocked.add(value.getAsString());
             disabled=Set.copyOf(blocked);allowed=policy.get("allowed").getAsBoolean();
             maintenance=policy.get("maintenance").getAsBoolean();maintenanceReason=policy.get("message").getAsString();

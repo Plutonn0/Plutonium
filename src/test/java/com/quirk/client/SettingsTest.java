@@ -63,7 +63,7 @@ class SettingsTest {
         eat.set(30); assertEquals(20,eat.number());
         var fireworks=s.module("autofirework").get("interval");
         fireworks.set(1); assertEquals(10,fireworks.number());
-        var threshold=s.module("suschunk").get("threshold");
+        var threshold=s.module("suschunk").get("changes");
         threshold.set(200); assertEquals(100,threshold.number());
         var clutchFall=s.module("autoclutch").get("fall");
         clutchFall.set(0); assertEquals(1,clutchFall.number());

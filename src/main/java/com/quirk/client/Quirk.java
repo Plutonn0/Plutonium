@@ -384,6 +384,8 @@ public final class Quirk {
         }
         EngineAccess.position(camera,cameraPosition.x,cameraPosition.y,cameraPosition.z); EngineAccess.rotation(camera,yaw,pitch);
     }
+    public static void blockChanged(net.minecraft.world.level.block.state.BlockState before,net.minecraft.world.level.chunk.LevelChunk chunk,net.minecraft.core.BlockPos pos) { overlay.blockChanged(chunk,pos,before); }
+    static int changedBlocksForTest(int x,int z){return overlay.changedBlocksForTest(x,z);}
     public static void renderHud(GuiGraphics g) { initialize(); if(Minecraft.getInstance().level!=null) overlay.render(g); }
     private static void syncFreelook(){
         var mc=Minecraft.getInstance();

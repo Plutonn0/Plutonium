@@ -25,17 +25,28 @@ public final class Overlay {
     private final List<Label> labels=new ArrayList<>();
     private final SusChunkTracker susChunks=new SusChunkTracker();
     private Object level;
-    private int untilScan,activityTicks,debrisCooldown;
+    private int untilScan,debrisCooldown;
     private record Label(Vec3 position,String text,int color){}
     private Matrix4f viewProjection;
     private Vec3 eye;
     public void invalidate(){untilScan=0;}
+    public void blockChanged(net.minecraft.world.level.chunk.LevelChunk chunk,BlockPos pos,net.minecraft.world.level.block.state.BlockState before){
+        Minecraft mc=Minecraft.getInstance();
+        if(before==null || mc.level==null || chunk.getLevel()!=mc.level || !mc.isSameThread())return;
+        if(level!=mc.level){level=mc.level;blocks.clear();debris.clear();scanQueue.clear();susChunks.clear();untilScan=0;debrisCooldown=0;viewProjection=null;}
+        var after=chunk.getBlockState(pos);
+        // Opening doors, redstone power, fluids and air variants are not excavations or placed blocks.
+        if(before.getBlock()==after.getBlock() || before.isAir()&&after.isAir())return;
+        if(before.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock || after.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock)return;
+        susChunks.changed(pos.getX(),pos.getY(),pos.getZ(),before.isAir()?0:1+net.minecraft.core.registries.BuiltInRegistries.BLOCK.getId(before.getBlock()),after.isAir()?0:1+net.minecraft.core.registries.BuiltInRegistries.BLOCK.getId(after.getBlock()));
+    }
+    int changedBlocksForTest(int x,int z){return susChunks.blocks(x,z,1024).size();}
+
     public void tick(){
         Minecraft mc=Minecraft.getInstance();
         if(mc.level!=level){level=mc.level;blocks.clear();debris.clear();scanQueue.clear();susChunks.clear();untilScan=0;debrisCooldown=0;viewProjection=null;}
         if(mc.level==null||mc.player==null)return;
         Settings s=Quirk.settings();
-        if(s.module("suschunk").on()&&++activityTicks>=5){activityTicks=0;for(var p:mc.level.players())if(p!=mc.player&&p.isAlive())susChunks.observe(p.getUUID(),p.getX(),p.getZ());}
         scanDebris(mc,s.module("netherite"));
         if(--untilScan>0)return;untilScan=10;blocks.clear();
         var st=s.module("storage");var sp=s.module("spawners");var tr=s.module("tracers");
@@ -93,10 +104,18 @@ public final class Overlay {
             else if(spawn&&sp.on()&&sp.flag("tracer")&&distance<=sp.number("distance"))draw.line(start,center,sp.color(),1);
         }
         var netherite=s.module("netherite");if(netherite.on())for(var positions:debris.values())for(BlockPos pos:positions)if(Vec3.atCenterOf(pos).distanceTo(eye)<=netherite.number("distance")&&mc.level.getBlockState(pos).is(Blocks.ANCIENT_DEBRIS))draw.box(new AABB(pos),netherite.color(),netherite.get("style").choice().equals("Filled"));
-        if(s.module("suschunk").on())for(var chunk:susChunks.busiest((int)s.module("suschunk").number("threshold"),32)){
-            int x=chunk.x()*16,z=chunk.z()*16;if(!mc.level.hasChunk(chunk.x(),chunk.z()))continue;
-            // A red block grid on the chunk's surface is anchored to integer world coordinates.
-            for(int edge=0;edge<16;edge+=3)for(int side=0;side<4;side++){int bx=x+(side==0?0:side==1?15:edge),bz=z+(side==2?0:side==3?15:edge);int y=mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING,bx,bz)-1;draw.box(new AABB(new BlockPos(bx,y,bz)),0xffe75858,true);}
+        var sus=s.module("suschunk");int susDrawn=0;
+        if(sus.on())for(var chunk:susChunks.busiest((int)sus.number("changes"),256).stream()
+            .filter(c->mc.level.hasChunk(c.x(),c.z())&&Math.hypot(c.x()*16+8-eye.x,c.z()*16+8-eye.z)<=sus.number("distance"))
+            .sorted(Comparator.comparingDouble(c->Math.hypot(c.x()*16+8-eye.x,c.z()*16+8-eye.z))).limit(32).toList()){
+            int x=chunk.x()*16,z=chunk.z()*16;
+            // Draw the changed positions themselves, including empty blocks left by mining underground.
+            for(var block:susChunks.blocks(chunk.x(),chunk.z(),Math.min(64,512-susDrawn))){draw.box(new AABB(new BlockPos(block.x(),block.y(),block.z())),sus.color(),true);susDrawn++;}
+            if(sus.flag("border"))for(int edge=0;edge<16;edge+=3)for(int side=0;side<4;side++){
+                int bx=x+(side==0?0:side==1?15:edge),bz=z+(side==2?0:side==3?15:edge);
+                int y=mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING,bx,bz)-1;
+                if(y>=mc.level.getMinY())draw.box(new AABB(new BlockPos(bx,y,bz)),sus.color(),true);
+            }
         }
         if(s.module("trajectory").on()&&(mc.player.getMainHandItem().is(Items.ENDER_PEARL)||mc.player.getOffhandItem().is(Items.ENDER_PEARL)))pearl(draw,mc,s.module("trajectory").color());
         draw.finish();

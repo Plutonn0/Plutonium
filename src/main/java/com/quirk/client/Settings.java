@@ -79,8 +79,8 @@ public final class Settings {
             slider("distance", "Maximum distance", 128, 16, 256, 8, " m"), slider("thickness", "Line thickness", 1.5, 0.5, 4, 0.5, " px"), color("color", "Color", 0xff8dd9c1)),
         new Module("xray", "X-ray", "RENDER", "See ores and valuable blocks through terrain", false),
         new Module("fullbright", "Fullbright", "RENDER", "Keep the world clearly visible in darkness", false),
-        new Module("suschunk", "SusChunk", "RENDER", "Track player movement observed during this session", false).add(
-            slider("threshold", "Activity threshold", 12, 4, 100, 1, " moves")),
+        new Module("suschunk", "SusChunk", "RENDER", "Highlight placed or removed blocks observed this session; not pre-existing terrain", false).add(
+            slider("changes", "Minimum changed blocks", 1, 1, 100, 1, " blocks"), slider("distance", "Render distance", 128, 16, 256, 16, " m"), bool("border", "Highlight chunk border", true), color("color", "Highlight color", 0xffe75858)),
         new Module("freecam", "Freecam", "MOVEMENT", "Explore with a detached camera", false).add(
             slider("speed", "Speed", 16, 1, 80, 0.5, " m/s"), slider("vertical", "Vertical speed", 12, 1, 60, 0.5, " m/s")),
         new Module("fastplace", "Fast Place", "MOVEMENT", "Remove the vanilla delay while placing blocks", false),
