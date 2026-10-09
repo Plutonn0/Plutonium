@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Plutonium Client</AssemblyName>
     <RootNamespace>PlutoniumLauncher</RootNamespace>
-    <Version>2.0.3</Version>
+    <Version>2.0.4</Version>
     <ApplicationIcon>Assets\Plutonium.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile>

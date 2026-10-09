@@ -8,6 +8,8 @@ public partial class App : Application
 {
     protected override async void OnStartup(StartupEventArgs e)
     {
+        var betaPrompt = System.Windows.Input.Keyboard.IsKeyDown(System.Windows.Input.Key.LeftCtrl)
+            || System.Windows.Input.Keyboard.IsKeyDown(System.Windows.Input.Key.RightCtrl) || e.Args.Contains("--beta-prompt");
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         SplashWindow? splash = null;
@@ -21,7 +23,7 @@ public partial class App : Application
                 await Dispatcher.Yield(DispatcherPriority.Background);
             }
             // Keep file copying and Windows registration off the animation dispatcher.
-            if(await InstallAsync()) { Shutdown(); return; }
+            if(await InstallAsync(betaPrompt)) { Shutdown(); return; }
             if (Dispatcher.HasShutdownStarted) return;
             var window = new MainWindow(); MainWindow = window;
             window.Closed += (_, _) => Shutdown();
@@ -34,6 +36,7 @@ public partial class App : Application
             window.Show(); splash?.Close();
             if (SystemParameters.ClientAreaAnimation)
                 window.BeginAnimation(UIElement.OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
+            if (betaPrompt && !e.Args.Any(a => a.StartsWith("--smoke"))) window.ShowBetaPrompt();
             if (e.Args.Contains("--smoke-startup"))
             {
                 await Dispatcher.Yield(DispatcherPriority.Background);
@@ -48,12 +51,12 @@ public partial class App : Application
             Shutdown(); return;
         }
     }
-    private static Task<bool> InstallAsync()
+    private static Task<bool> InstallAsync(bool betaPrompt)
     {
         var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var worker = new Thread(() =>
         {
-            try { completed.SetResult(AppInstaller.EnsureInstalled()); }
+            try { completed.SetResult(AppInstaller.EnsureInstalled(betaPrompt)); }
             catch (Exception ex) { completed.SetException(ex); }
         }) { IsBackground = true, Name = "Plutonium installation" };
         worker.SetApartmentState(ApartmentState.STA); worker.Start(); return completed.Task;

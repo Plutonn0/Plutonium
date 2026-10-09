@@ -22,6 +22,8 @@ public partial class MainWindow
     private TextBlock _maintenanceTitle = null!;
     private bool _policyAvailable;
     private HashSet<string> _disabledFeatures = [];
+    private HashSet<string> _betaFeatures = [];
+    private Func<Task>? _refreshBetaKey;
     private StackPanel? _liveStats;
     private TextBlock? _statsStatus;
 
@@ -54,6 +56,7 @@ public partial class MainWindow
                     _nextServiceHeartbeat=DateTimeOffset.UtcNow.AddSeconds(30);
                     if (_moderation.HasSession && _config is not null)
                         await _moderation.RequestAsync("heartbeat",HttpMethod.Post,new { kind="launcher", version=CurrentLauncherVersion, installationId=_config.InstallationId },_moderationLifetime.Token);
+                    if (_refreshBetaKey is not null && _moderation.Role == "owner") await _refreshBetaKey();
                     if (_liveStats is { IsVisible:true } && _moderation.Role == "owner") await RefreshModerationStatsAsync();
                 }
             }
@@ -74,6 +77,7 @@ public partial class MainWindow
             if (!wasMaintenance && _maintenance || !_maintenance) _maintenanceMenuOpen=false;
             _maintenanceTitle.Text="MAINTENANCE MODE";
             _disabledFeatures=policy.GetProperty("disabledFeatures").EnumerateArray().Select(v=>v.GetString()!).ToHashSet();
+            _betaFeatures=policy.TryGetProperty("betaFeatures",out var betaFeatures)?betaFeatures.EnumerateArray().Select(v=>v.GetString()!).ToHashSet():[];
             _maintenanceMessage.Text=policy.GetProperty("message").GetString();
             if (_moderation.HasSession) await _moderation.RefreshIdentityAsync(_moderationLifetime.Token);
             else _moderation.Reset();
@@ -118,11 +122,13 @@ public partial class MainWindow
     {
         if (!ModerationService.Configured) return;
         await RefreshPolicyAsync();
+        if (_betaFeatures.Contains(feature)) await ConnectModerationAsync();
+        if (_betaFeatures.Contains(feature) && !_moderation.BetaAccess) throw new InvalidOperationException("This feature is in closed beta. Hold Ctrl while opening Plutonium to redeem an invitation.");
         if (!_policyAvailable || _maintenance || _disabledFeatures.Contains(feature)) throw new InvalidOperationException("This feature is currently unavailable under the launcher service policy.");
     }
     private async Task ShowModerationAsync()
     {
-        _libraryPage.Tag="moderation"; _libraryPage.Children.Clear(); _liveStats=null;
+        _libraryPage.Tag="moderation"; _libraryPage.Children.Clear(); _liveStats=null; _refreshBetaKey=null;
         var content=new StackPanel(); _libraryPage.Children.Add(Scroll(content));
         content.Children.Add(Label("CONTROL CENTER",11,true));
         content.Children.Add(Label("Moderation",30));
@@ -184,7 +190,7 @@ public partial class MainWindow
         tabs.Children.Add(ActionButton(_moderation.Role=="owner"?"OVERVIEW":"REFRESH",ShowModerationAsync));
         tabs.Children.Add(ActionButton("USERS",()=>ShowModerationUsersAsync(content)));
         tabs.Children.Add(ActionButton("APPEALS",()=>ShowAppealsAsync(content)));
-        if(_moderation.Role=="owner") { tabs.Children.Add(ActionButton("GLOBAL SETTINGS",()=>ShowRemoteConfigAsync(content))); tabs.Children.Add(ActionButton("AUDIT LOG",()=>ShowAuditAsync(content))); }
+        if(_moderation.Role=="owner") { tabs.Children.Add(ActionButton("CLOSED BETA",()=>ShowBetaAdminAsync(content))); tabs.Children.Add(ActionButton("GLOBAL SETTINGS",()=>ShowRemoteConfigAsync(content))); tabs.Children.Add(ActionButton("AUDIT LOG",()=>ShowAuditAsync(content))); }
         if (_statsStatus is not null && content.Children.Contains(_statsStatus)) content.Children.Insert(content.Children.IndexOf(_statsStatus),tabs);
         else content.Children.Add(tabs);
     }

@@ -5,7 +5,7 @@ import { newDb } from 'pg-mem';
 import { createService } from '../lib/service.js';
 import { digest,token } from '../lib/security.js';
 const env={OWNER_MINECRAFT_UUID:'a'.repeat(32)};
-async function fixture(fetcher=async()=>{throw new Error('Unexpected external request');},extraEnv={}){
+async function fixture(fetcher=async()=>{throw new Error('Unexpected external request');},extraEnv={},clock=()=>new Date()){
  const db=newDb(); db.public.none(await readFile(new URL('../schema.sql',import.meta.url),'utf8'));
  const {Pool}=db.adapters.createPg();const pool=new Pool();
  const users={owner:'a'.repeat(32),admin:'b'.repeat(32),user:'c'.repeat(32)};const tokens={};
@@ -13,7 +13,7 @@ async function fixture(fetcher=async()=>{throw new Error('Unexpected external re
   await pool.query('INSERT INTO accounts(uuid,username,role) VALUES($1,$2,$3)',[uuid,name,name==='admin'?'admin':'user']);
   tokens[name]=token();await pool.query('INSERT INTO sessions(hash,uuid,expires,owner_until) VALUES($1,$2,$3,$4)',[digest(tokens[name]),uuid,new Date(Date.now()+600000),name==='owner'?new Date(Date.now()+600000):null]);
  }
- return {pool,users,tokens,api:createService(pool,{...env,...extraEnv},fetcher)};
+ return {pool,users,tokens,api:createService(pool,{...env,...extraEnv},fetcher,undefined,clock)};
 }
 test('all administrative endpoints reject unsigned and ordinary users',async()=>{
  const {api,tokens}=await fixture();
@@ -143,4 +143,72 @@ test('only a verified owner can remember a device or revoke all devices',async()
  await api('owner/devices/revoke-all','POST',{},tokens.owner);
  assert.equal((await pool.query('SELECT * FROM owner_devices')).rows.length,0);
  await assert.rejects(api('owner/device/resume','POST',device,tokens.owner),e=>e.status===403);
+});
+
+
+test('daily beta key is owner-only, stable within a UTC day and rotates at midnight',async()=>{
+ let now=new Date('2026-10-09T23:59:00Z');const {api,tokens,pool}=await fixture(undefined,{},()=>now);
+ for(const actor of [null,tokens.user,tokens.admin])await assert.rejects(api('admin/beta','GET',{},actor),e=>e.status===401||e.status===403);
+ const first=await api('admin/beta','GET',{},tokens.owner);
+ assert.match(first.key,/^[A-F0-9]{8}(-[A-F0-9]{8}){3}$/);assert.equal(first.expiresAt,'2026-10-10T00:00:00.000Z');
+ const restarted=createService(pool,env,undefined,undefined,()=>now);
+ assert.equal((await restarted('admin/beta','GET',{},tokens.owner)).key,first.key);
+ now=new Date('2026-10-10T00:00:00Z');const second=await api('admin/beta','GET',{},tokens.owner);assert.notEqual(first.key,second.key);
+ await assert.rejects(api('beta/redeem','POST',{key:first.key},tokens.user),e=>e.status===400);
+ await api('beta/redeem','POST',{key:second.key.toLowerCase()},tokens.user);
+ assert.equal((await api('me','GET',{},tokens.user)).betaAccess,true);
+ assert.equal((await api('me','GET',{},tokens.user)).role,'user');
+});
+
+test('beta enrollment survives key rotation and service restart, and does not leak invitation codes',async()=>{
+ let now=new Date('2026-10-09T12:00:00Z');const {api,pool,tokens}=await fixture(undefined,{},()=>now);
+ const {key}=await api('admin/beta','GET',{},tokens.owner);
+ await api('beta/redeem','POST',{key},tokens.user);now=new Date('2026-10-12T12:00:00Z');
+ const restarted=createService(pool,env,undefined,undefined,()=>now);
+ assert.equal((await restarted('me','GET',{},tokens.user)).betaAccess,true);
+ const audit=(await pool.query('SELECT details FROM audit')).rows;
+ for(const response of [await api('config','GET',{}),await api('me','GET',{},tokens.user),audit]) assert.equal(JSON.stringify(response).includes(key),false);
+});
+
+test('revocation blocks redemption of future keys until the owner restores membership',async()=>{
+ const {api,tokens,users}=await fixture();const {key}=await api('admin/beta','GET',{},tokens.owner);
+ await api('beta/redeem','POST',{key},tokens.user);
+ for(const actor of [tokens.admin,tokens.user])await assert.rejects(api('admin/beta/member','POST',{uuid:users.user,revoked:true},actor),e=>e.status===403);
+ await api('admin/beta/member','POST',{uuid:users.user,revoked:true},tokens.owner);
+ assert.equal((await api('me','GET',{},tokens.user)).betaAccess,false);
+ await assert.rejects(api('beta/redeem','POST',{key},tokens.user),e=>e.status===403);
+ await api('admin/beta/member','POST',{uuid:users.user,revoked:false},tokens.owner);
+ assert.equal((await api('me','GET',{},tokens.user)).betaAccess,true);
+});
+
+test('beta feature gates reach existing clients, and global restrictions take precedence',async()=>{
+ const {api,pool,tokens,users}=await fixture();const settings=await api('admin/beta','GET',{},tokens.owner);
+ await api('admin/beta/features','PUT',{features:['fly','mods'],revision:settings.revision},tokens.owner);
+ let state=await api('heartbeat','POST',{kind:'client'},tokens.user);assert.equal(state.betaAccess,false);assert.ok(state.disabledFeatures.includes('fly'));
+ await api('beta/redeem','POST',{key:settings.key},tokens.user);
+ state=await api('heartbeat','POST',{kind:'client'},tokens.user);assert.equal(state.betaAccess,true);assert.ok(!state.disabledFeatures.includes('fly'));
+ const config=await api('config','GET',{});await api('admin/config','PUT',{...config,disabledFeatures:['fly'],maintenance:true},tokens.owner);
+ state=await api('heartbeat','POST',{kind:'client'},tokens.user);assert.ok(state.disabledFeatures.includes('fly'));assert.equal(state.maintenance,true);
+ await pool.query('UPDATE accounts SET disabled=true WHERE uuid=$1',[users.user]);
+ state=await api('heartbeat','POST',{kind:'client'},tokens.user);assert.equal(state.allowed,false);assert.equal(state.betaAccess,false);
+});
+
+test('beta feature editing validates IDs, enforces owner authority and detects stale edits',async()=>{
+ const {api,tokens}=await fixture();
+ for(const actor of [tokens.admin,tokens.user])await assert.rejects(api('admin/beta/features','PUT',{features:['fly'],revision:1},actor),e=>e.status===403);
+ await assert.rejects(api('admin/beta/features','PUT',{features:['made-up'],revision:1},tokens.owner),e=>e.status===400);
+ await api('admin/beta/features','PUT',{features:['fly'],revision:1},tokens.owner);
+ await assert.rejects(api('admin/beta/features','PUT',{features:[],revision:1},tokens.owner),e=>e.status===409);
+});
+
+test('beta enrollment rejects unsigned, disabled and maintenance requests and rate limits guessing',async()=>{
+ const {api,pool,tokens,users}=await fixture();const {key}=await api('admin/beta','GET',{},tokens.owner);
+ await assert.rejects(api('beta/redeem','POST',{key},null),e=>e.status===401);
+ await pool.query('UPDATE accounts SET disabled=true WHERE uuid=$1',[users.user]);
+ await assert.rejects(api('beta/redeem','POST',{key},tokens.user),e=>e.status===403);
+ await pool.query('UPDATE accounts SET disabled=false WHERE uuid=$1',[users.user]);
+ const config=await api('config','GET',{});await api('admin/config','PUT',{...config,maintenance:true},tokens.owner);
+ await assert.rejects(api('beta/redeem','POST',{key},tokens.user),e=>e.status===403);
+ for(let i=0;i<3;i++)await assert.rejects(api('beta/redeem','POST',{key:'wrong'},tokens.user));
+ await assert.rejects(api('beta/redeem','POST',{key},tokens.user),e=>e.status===429);
 });

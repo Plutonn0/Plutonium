@@ -354,6 +354,20 @@ public sealed class LibraryTests : IDisposable
                 if(analyticsPreview is not null){var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap(1700,1160,192,192,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(editor);var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));using var output=File.Create(Path.Combine(analyticsPreview,"moderation-settings.png"));encoder.Save(output);}
                 saveButton.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
                 Assert.NotNull(savedPayload);var payloadJson=System.Text.Json.JsonSerializer.SerializeToElement(savedPayload);Assert.Equal(7,payloadJson.GetProperty("revision").GetInt32());Assert.Equal("fly",payloadJson.GetProperty("disabledFeatures")[0].GetString());
+                var betaDialog=(System.Windows.Window)typeof(MainWindow).GetMethod("CreateBetaPrompt",reflection)!.Invoke(window,null)!;
+                var betaSurface=(System.Windows.Controls.StackPanel)betaDialog.Content;
+                betaSurface.Measure(new System.Windows.Size(520,double.PositiveInfinity));
+                betaSurface.Arrange(new System.Windows.Rect(0,0,520,betaSurface.DesiredSize.Height));betaSurface.UpdateLayout();
+                var betaField=betaSurface.Children.OfType<System.Windows.Controls.TextBox>().Single();
+                Assert.True(betaField.ActualHeight>=46);
+                var betaRedeem=betaSurface.Children.OfType<System.Windows.Controls.Button>().Single(b=>Equals(b.Content,"UNLOCK BETA"));
+                betaRedeem.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                Assert.Contains(betaSurface.Children.OfType<System.Windows.Controls.TextBlock>(),t=>t.Text=="Enter the invitation key first.");
+                if(analyticsPreview is not null) {
+                    var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap(1040,(int)Math.Ceiling(betaSurface.DesiredSize.Height*2),192,192,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(betaSurface);
+                    var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));using var output=File.Create(Path.Combine(analyticsPreview,"beta-enrollment.png"));encoder.Save(output);
+                }
+                betaDialog.Close();
                 var splash = new SplashWindow();
                 splash.SetStatus("Checking client files…");
                 Assert.Contains("Checking", ((System.Windows.Controls.TextBlock)splash.FindName("StatusText")).Text);

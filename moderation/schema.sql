@@ -42,3 +42,13 @@ CREATE TABLE IF NOT EXISTS owner_devices (
  created_at timestamptz NOT NULL DEFAULT now(), last_used timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS owner_device_hash text;
+
+CREATE TABLE IF NOT EXISTS beta_settings (
+ id int PRIMARY KEY CHECK(id=1), key_day text NOT NULL DEFAULT '', invitation text NOT NULL DEFAULT '',
+ features jsonb NOT NULL DEFAULT '[]', revision int NOT NULL DEFAULT 1
+);
+INSERT INTO beta_settings(id) VALUES(1) ON CONFLICT(id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS beta_members (
+ uuid text PRIMARY KEY REFERENCES accounts(uuid), revoked boolean NOT NULL DEFAULT false,
+ enrolled_at timestamptz NOT NULL DEFAULT now()
+);

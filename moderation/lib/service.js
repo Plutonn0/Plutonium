@@ -1,7 +1,8 @@
 import { ApiError, authorize, digest, token, roleFor, verifyOwner, requireOwnerConfig, validateConfig, validateAppeal, features } from './security.js';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { dailySeries } from './analytics.js';
 
-export function createService(pool, env, fetcher = fetch, ownerVerifier = verifyOwner) {
+export function createService(pool, env, fetcher = fetch, ownerVerifier = verifyOwner, clock = () => new Date()) {
   async function upstream(url, options) {
     try { return await fetcher(url, { ...options, signal: AbortSignal.timeout(12000), redirect: 'error' }); }
     catch { throw new ApiError(503, 'Identity service is temporarily unavailable. Try again.'); }
@@ -24,7 +25,18 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
   async function configuration(db = pool) {
     const { rows } = await db.query('SELECT value,revision FROM configuration WHERE id=1');
     if (!rows[0]) throw new ApiError(503, 'Moderation database needs migration.');
-    return { ...rows[0].value, revision: rows[0].revision };
+    const beta = (await db.query('SELECT features FROM beta_settings WHERE id=1')).rows[0];
+    return { ...rows[0].value, revision: rows[0].revision, betaFeatures: beta?.features ?? [] };
+  }
+  async function betaMember(uuid, db = pool) {
+    return (await db.query('SELECT revoked FROM beta_members WHERE uuid=$1', [uuid])).rows[0];
+  }
+  async function dailyKey(db = pool) {
+    const day = clock().toISOString().slice(0,10);
+    // Conditional update serializes concurrent rotations. A key is valid only for this UTC day.
+    await db.query('UPDATE beta_settings SET key_day=$1,invitation=$2 WHERE id=1 AND key_day<$1',
+      [day, randomBytes(16).toString('hex').toUpperCase().match(/.{8}/g).join('-')]);
+    return (await db.query('SELECT * FROM beta_settings WHERE id=1')).rows[0];
   }
   async function audit(db, actor, action, target, details = {}) {
     await db.query('INSERT INTO audit(actor,action,target,details) VALUES($1,$2,$3,$4)', [actor.uuid, action, target, JSON.stringify(details)]);
@@ -84,8 +96,28 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
     const me = await principal(bearer);
     await limit(`session:${me.hash}`, 120);
     if (path === 'session' && method === 'DELETE') { await pool.query('DELETE FROM sessions WHERE hash=$1', [me.hash]); return { ok: true }; }
-    if (path === 'me' && method === 'GET') return { username: me.username, uuid: me.uuid, role: me.access, disabled: me.disabled, reason: me.reason, ownerCandidate: me.uuid === env.OWNER_MINECRAFT_UUID };
-    if(path==='owner/device/register' && method==='POST') return mutation(bearer,'owner',async(db,actor)=>{
+    if (path === 'me' && method === 'GET') return { betaAccess: !me.disabled && (await betaMember(me.uuid))?.revoked === false, username: me.username, uuid: me.uuid, role: me.access, disabled: me.disabled, reason: me.reason, ownerCandidate: me.uuid === env.OWNER_MINECRAFT_UUID };
+    if (path === 'beta/redeem' && method === 'POST') {
+      await limit(`beta:${me.uuid}`, 5, 600);
+      if (typeof body.key !== 'string' || body.key.length > 80) throw new ApiError(400, 'Enter a valid beta invitation key.');
+      const key = body.key.trim().toUpperCase();
+      const db = await pool.connect();
+      try {
+        await db.query('BEGIN');
+        const actor = await principal(bearer, db, true);
+        const config = await configuration(db);
+        if (actor.disabled || config.maintenance) throw new ApiError(403, 'Beta enrollment is unavailable while your account is restricted or maintenance is active.');
+        const member = await betaMember(actor.uuid, db);
+        if (member?.revoked) throw new ApiError(403, 'Your beta access was revoked. Contact the owner to restore it.');
+        const daily = await dailyKey(db);
+        if (daily.key_day !== clock().toISOString().slice(0,10) || !timingSafeEqual(Buffer.from(digest(key)), Buffer.from(digest(daily.invitation))))
+          throw new ApiError(400, 'Invalid or expired beta key. Ask the owner for today’s key.');
+        await db.query('INSERT INTO beta_members(uuid) VALUES($1) ON CONFLICT(uuid) DO NOTHING', [actor.uuid]);
+        await audit(db, actor, 'beta.enroll', actor.uuid);
+        await db.query('COMMIT'); return { betaAccess: true };
+      } catch(error) { await db.query('ROLLBACK'); throw error; } finally { db.release(); }
+    }
+    if(path==='owner/device/register'  && method==='POST') return mutation(bearer,'owner',async(db,actor)=>{
       requireOwnerConfig(env);
       const credential=token();
       await db.query('INSERT INTO owner_devices(hash,uuid,microsoft_oid) VALUES($1,$2,$3)',[digest(credential),actor.uuid,env.OWNER_MICROSOFT_OID]);
@@ -120,7 +152,8 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
       await pool.query('INSERT INTO activity_days(uuid) VALUES($1) ON CONFLICT DO NOTHING', [me.uuid]);
       if (body.kind === 'launcher' && /^[a-f0-9-]{36}$/i.test(body.installationId ?? '')) await pool.query('INSERT INTO installations(id) VALUES($1) ON CONFLICT(id) DO UPDATE SET last_seen=now()', [digest(body.installationId)]);
       const config = await configuration();
-      return { allowed: !me.disabled, reason: me.reason, role: me.access, ownerCandidate: me.uuid===env.OWNER_MINECRAFT_UUID, appealUrl: 'https://plutoniumclient.vercel.app/appeal', ...config, leaseSeconds: 120 };
+      const betaAccess = !me.disabled && (await betaMember(me.uuid))?.revoked === false;
+      return { betaAccess, allowed: !me.disabled, reason: me.reason, role: me.access, ownerCandidate: me.uuid===env.OWNER_MINECRAFT_UUID, appealUrl: 'https://plutoniumclient.vercel.app/appeal', ...config, disabledFeatures: [...new Set([...config.disabledFeatures, ...(betaAccess ? [] : config.betaFeatures)])], leaseSeconds: 120 };
     }
     if (path === 'owner/start' && method === 'POST') {
       requireOwnerConfig(env);
@@ -164,7 +197,29 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
       await audit(db,actor,'maintenance.stop','global');
       return configuration(db);
     });
-    if (path === 'admin/stats' && method === 'GET') {
+    if (path === 'admin/beta' && method === 'GET') {
+      authorize(me.access, 'owner');
+      const settings = await dailyKey();
+      const members = (await pool.query('SELECT b.uuid,b.revoked,b.enrolled_at,a.username FROM beta_members b JOIN accounts a ON a.uuid=b.uuid ORDER BY b.enrolled_at DESC LIMIT 500')).rows;
+      return { key: settings.invitation, expiresAt: new Date(Date.parse(settings.key_day + 'T00:00:00Z') + 86400000).toISOString(),
+        features: settings.features, revision: settings.revision, availableFeatures: features, members };
+    }
+    if (path === 'admin/beta/features' && method === 'PUT') return mutation(bearer, 'owner', async(db,actor) => {
+      if (!Array.isArray(body.features) || body.features.length > features.length || body.features.some(f => !features.includes(f)) || !Number.isInteger(body.revision)) throw new ApiError(400, 'Invalid beta features.');
+      const ids = [...new Set(body.features)];
+      const result = await db.query('UPDATE beta_settings SET features=$1,revision=revision+1 WHERE id=1 AND revision=$2 RETURNING revision', [JSON.stringify(ids),body.revision]);
+      if (!result.rows[0]) throw new ApiError(409, 'Beta settings changed. Refresh before saving.');
+      await audit(db, actor, 'beta.features', 'global', { features: ids }); return { ok: true };
+    });
+    if (path === 'admin/beta/member' && method === 'POST') return mutation(bearer, 'owner', async(db,actor) => {
+      if (!/^[a-f0-9]{32}$/.test(body.uuid ?? '') || typeof body.revoked !== 'boolean') throw new ApiError(400, 'Invalid beta member.');
+      // Lock the account just as enrollment does, so revocation always wins an earlier redemption.
+      await db.query('SELECT uuid FROM accounts WHERE uuid=$1 FOR UPDATE', [body.uuid]);
+      const result = await db.query('UPDATE beta_members SET revoked=$2 WHERE uuid=$1 RETURNING uuid', [body.uuid,body.revoked]);
+      if (!result.rows[0]) throw new ApiError(404, 'Beta member not found.');
+      await audit(db, actor, body.revoked ? 'beta.revoke' : 'beta.restore', body.uuid); return { ok: true };
+    });
+    if (path === 'admin/stats'  && method === 'GET') {
       authorize(me.access,'owner');
       const accounts = (await pool.query("SELECT count(*)::int AS total, count(*) FILTER(WHERE last_seen>now()-interval '5 minutes')::int AS active, count(*) FILTER(WHERE client_seen>now()-interval '2 minutes' AND NOT disabled)::int AS playing, count(*) FILTER(WHERE disabled)::int AS disabled FROM accounts")).rows[0];
       const installs = (await pool.query("SELECT count(*)::int AS total, count(*) FILTER(WHERE first_seen>=CURRENT_DATE-6)::int AS this_week, count(*) FILTER(WHERE first_seen<CURRENT_DATE-6 AND first_seen>=CURRENT_DATE-13)::int AS last_week FROM installations")).rows[0];

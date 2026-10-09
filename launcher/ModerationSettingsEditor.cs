@@ -28,7 +28,7 @@ internal sealed class ModerationSettingsEditor : Grid
         "weather" or "notifications" or "coordinates" or "active"=>"HUD",
         _=>"Misc"
     };
-    private static string FeatureName(string id)=>id switch {
+    internal static string FeatureName(string id)=>id switch {
         "players"=>"Player ESP", "storage"=>"Storage ESP", "spawners"=>"Spawner ESP", "suschunk"=>"Suspicious chunks", "mobs"=>"Mob ESP", "nametags"=>"Name tags", "trajectory"=>"Pearl trajectory", "xray"=>"X-ray",
         "elytraglide"=>"Elytra glide", "inventorymove"=>"Inventory move", "autoclutch"=>"Auto clutch", "fastplace"=>"Fast place", "aimassist"=>"Aim assist", "automace"=>"Auto mace", "autototem"=>"Auto totem", "doubleanchor"=>"Double anchor", "nohitdelay"=>"No hit delay", "autoclicker"=>"Auto clicker", "autoeat"=>"Auto eat", "autofirework"=>"Auto firework", "quickexp"=>"Quick XP", "invtotem"=>"Inventory totem", "fakepay"=>"Fake pay", "netherite"=>"Netherite finder", "fakestats"=>"Fake stats", "weather"=>"Weather notifier", "active"=>"Active modules HUD", "discord"=>"Discord presence", "mods"=>"Mod browser",
         _=>char.ToUpperInvariant(id[0])+id[1..]

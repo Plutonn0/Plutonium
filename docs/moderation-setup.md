@@ -126,3 +126,16 @@ Resuming requires both this credential and a fresh service session obtained from
 **Forget this device** revokes its credential and ends its service session. **Revoke all remembered devices** requires owner authority, removes all trusted credentials, and expires owner elevation on existing sessions. If all devices are lost, recover with the existing Microsoft verification flow. No device credentials or session tokens may be logged or committed.
 
 Global settings use category tabs, feature search, custom switches and a pinned Save bar. Edits do not apply until saved. A stale revision is rejected instead of overwriting another administrator's change; reload the settings view to reconcile it.
+
+
+## Closed beta (launcher 2.0.4)
+
+Hold either Ctrl key while starting the launcher, then enter the invitation and sign in to the Minecraft account that should receive access. The installer carries this prompt request across its relaunch. `--beta-prompt` also opens the prompt; neither method grants access on its own.
+
+In Settings → Moderation, verify the owner, then open **Closed beta**. Copy the daily invitation, choose any features to make beta-only, and revoke or restore enrolled accounts. Only the verified owner can manage this global rollout; delegated admins cannot see invitation keys. No features are beta-only by default.
+
+Keys rotate at 00:00 UTC, with the next key created atomically on demand. The previous day's key immediately becomes invalid even if no launcher was open at midnight. The displayed expiry is in your local time. Membership is stored against the verified Minecraft UUID, survives launcher/PC restarts and daily key rotation, and lasts until revoked. Revoked users cannot redeem another key until the owner restores them. Existing account restrictions, maintenance and globally disabled features always take precedence. Policy updates normally arrive on the next poll (about 3 seconds); the existing client lease bounds stale access during a network outage to 120 seconds.
+
+Apply `schema.sql` before deploying this API version. The two new tables are additive; no new environment variables or scheduled jobs are required. Enrollment is rate-limited, requires a valid Minecraft service session, and never elevates the account's moderation role. The invitation is stored in the protected database so the owner can retrieve it; it is not included in public configuration, heartbeat responses or audit details.
+
+This release provides enrollment and gates for features shipped in a build, not private build distribution. A future feature needs a registered feature ID and a policy check. The launcher uses `RequireFeatureAsync`; the client uses `RemotePolicy.permits`, with beta gates folded into its existing blocked-feature list. Keep genuinely unpublished source and binaries in private storage until release. Code already shipped to a user's PC cannot be made secret or impossible to modify by adding a feature flag. Private downloads and a separate beta update channel have intentionally not been configured yet.

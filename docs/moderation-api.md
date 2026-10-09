@@ -58,3 +58,14 @@ Service authorization: `Authorization: Bearer <opaque session token>`. Never put
 - Weekly activity and new installations: latest seven UTC calendar days including today, compared with the preceding seven. Today is partial. When the previous count is zero, display “no previous baseline” rather than an infinite percentage.
 - `admin/stats` includes `daily`: 14 ascending UTC dates with `active` and `installs` counts; missing days are zero-filled. `versions` counts recently active accounts by last reported launcher version. `reviews` contains accepted/rejected appeal counts for the latest seven UTC calendar days. None of these counts invent historical activity before deployment.
 - No email addresses, passwords, hardware fingerprints, world coordinates, server addresses or chat messages are collected for these metrics. Minecraft access tokens are used transiently to verify profiles, never persisted. Publish this disclosure in your site privacy notice before activation.
+
+
+## Closed beta
+
+- `POST /beta/redeem` with `{key}`: verified Minecraft session; five attempts per ten minutes per account, plus the shared IP limit. Returns `betaAccess: true`. Rejects maintenance, restricted accounts, revoked membership and expired/incorrect keys.
+- `GET /admin/beta`: owner only; daily `key`, `expiresAt`, `features`, `availableFeatures`, `revision` and latest 500 `members` (username, UUID, revoked state and enrollment time).
+- `PUT /admin/beta/features` with `{features,revision}`: owner only; registered IDs only, stale revision returns 409.
+- `POST /admin/beta/member` with `{uuid,revoked}`: owner only; revoke/restore an existing enrollment. Revocation persists across new daily keys.
+- `GET /me` and `POST /heartbeat` include `betaAccess`. Public config includes `betaFeatures` but never the key or member list. For non-members, heartbeat merges beta-only IDs into `disabledFeatures`, preserving compatibility with existing clients. Maintenance and account restriction checks remain independent.
+
+No client-supplied UUID, role, local flag or beta key alone is an administrative credential. Membership is account-based, not a device fingerprint. Audit records contain enrollment/revocation/feature changes, never invitation keys.

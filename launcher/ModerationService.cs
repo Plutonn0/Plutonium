@@ -23,6 +23,7 @@ public sealed class ModerationService : IDisposable
     public static readonly string BaseUrl = LoadEndpoint();
     public static bool Configured => BaseUrl.Length > 0;
     public string Role { get; private set; } = "user";
+    public bool BetaAccess { get; private set; }
     public bool OwnerCandidate { get; private set; }
     private static string DevicePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Plutonium","owner-device.bin");
     private string? ReadDevice()
@@ -89,6 +90,7 @@ public sealed class ModerationService : IDisposable
     public async Task<JsonElement> RefreshIdentityAsync(CancellationToken cancellationToken = default)
     {
         var me = await RequestAsync("me", HttpMethod.Get, cancellationToken: cancellationToken);
+        BetaAccess = me.TryGetProperty("betaAccess",out var beta) && beta.GetBoolean();
         Role = me.GetProperty("role").GetString() ?? "user";
         OwnerCandidate = me.GetProperty("ownerCandidate").GetBoolean(); return me;
     }
@@ -97,7 +99,7 @@ public sealed class ModerationService : IDisposable
         if (_token is not null && response.TryGetProperty("sessionExpiresIn",out var lifetime))
             _expires=DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(lifetime.GetInt32(),1,7200)-30);
     }
-    public void Reset() { _token = null; _uuid = ""; _expires = default; Role = "user"; OwnerCandidate = false; }
+    public void Reset() { _token = null; _uuid = ""; _expires = default; Role = "user"; OwnerCandidate = false; BetaAccess = false; }
     public async Task SignOutAsync()
     {
         try { if (HasSession) await RequestAsync("session", HttpMethod.Delete); } finally { Reset(); }

@@ -13,7 +13,7 @@ public static class AppInstaller
     public static string InstalledExecutable => Path.Combine(InstallDirectory, "Plutonium Client.exe");
     public static string Shortcut => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Plutonium.lnk");
 
-    public static bool EnsureInstalled()
+    public static bool EnsureInstalled(bool betaPrompt = false)
     {
         if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUTONIUM_LAUNCHER_HOME")) || Environment.GetCommandLineArgs().Any(a => a.StartsWith("--smoke"))) return false;
         var source = Environment.ProcessPath!;
@@ -27,14 +27,14 @@ public static class AppInstaller
                 && Version.TryParse(FileVersionInfo.GetVersionInfo(InstalledExecutable).FileVersion, out var installedVersion)
                 && installedVersion > Assembly.GetExecutingAssembly().GetName().Version)
             {
-                Process.Start(new ProcessStartInfo(InstalledExecutable) { UseShellExecute = true, WorkingDirectory = InstallDirectory });
+                Process.Start(new ProcessStartInfo(InstalledExecutable, betaPrompt ? "--beta-prompt" : "") { UseShellExecute = true, WorkingDirectory = InstallDirectory });
                 return true;
             }
             var pending = InstalledExecutable + ".installing";
             try { File.Copy(source, pending, true); File.Move(pending, InstalledExecutable, true); }
             finally { if (File.Exists(pending)) File.Delete(pending); }
             Register();
-            Process.Start(new ProcessStartInfo(InstalledExecutable) { UseShellExecute = true, WorkingDirectory = InstallDirectory });
+            Process.Start(new ProcessStartInfo(InstalledExecutable, betaPrompt ? "--beta-prompt" : "") { UseShellExecute = true, WorkingDirectory = InstallDirectory });
             return true;
         }
         Register();

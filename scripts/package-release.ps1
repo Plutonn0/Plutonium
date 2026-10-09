@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$PublicBaseUrl,
     [string]$ClientVersion = '2.0.2',
-    [string]$LauncherVersion = '2.0.3'
+    [string]$LauncherVersion = '2.0.4'
 )
 $ErrorActionPreference = 'Stop'
 $uri = [Uri]$PublicBaseUrl
