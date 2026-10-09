@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json;
+using System.Security.Cryptography;
 using CmlLib.Core.Auth;
 
 namespace PlutoniumLauncher;
@@ -23,6 +24,32 @@ public sealed class ModerationService : IDisposable
     public static bool Configured => BaseUrl.Length > 0;
     public string Role { get; private set; } = "user";
     public bool OwnerCandidate { get; private set; }
+    private static string DevicePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Plutonium","owner-device.bin");
+    private string? ReadDevice()
+    {
+        try {
+            if(!File.Exists(DevicePath))return null;
+            var bytes=ProtectedData.Unprotect(File.ReadAllBytes(DevicePath),null,DataProtectionScope.CurrentUser);
+            using var doc=JsonDocument.Parse(bytes);var value=doc.RootElement;
+            return value.GetProperty("uuid").GetString()==_uuid && value.GetProperty("endpoint").GetString()==BaseUrl ? value.GetProperty("token").GetString():null;
+        } catch(IOException) {return null;} catch(CryptographicException) {return null;} catch(JsonException) {return null;} catch(KeyNotFoundException) {return null;} catch(InvalidOperationException) {return null;}
+    }
+    public async Task RememberDeviceAsync()
+    {
+        var result=await RequestAsync("owner/device/register",HttpMethod.Post,new {});
+        var bytes=JsonSerializer.SerializeToUtf8Bytes(new {uuid=_uuid,endpoint=BaseUrl,token=result.GetProperty("deviceToken").GetString()});
+        Directory.CreateDirectory(Path.GetDirectoryName(DevicePath)!);
+        var temporary=DevicePath+".tmp";
+        await File.WriteAllBytesAsync(temporary,ProtectedData.Protect(bytes,null,DataProtectionScope.CurrentUser));
+        File.Move(temporary,DevicePath,true);
+    }
+    public async Task ForgetDeviceAsync()
+    {
+        var device=ReadDevice();
+        if(device is not null && HasSession) await RequestAsync("owner/device/forget",HttpMethod.Post,new {deviceToken=device});
+        if(File.Exists(DevicePath))File.Delete(DevicePath);
+        await SignOutAsync();
+    }
     public bool HasSession => _token is not null && _expires > DateTimeOffset.UtcNow;
     private static string LoadEndpoint()
     {
@@ -53,12 +80,22 @@ public sealed class ModerationService : IDisposable
         _token = result.GetProperty("token").GetString(); _uuid = session.UUID ?? "";
         _expires = DateTimeOffset.UtcNow.AddSeconds(result.GetProperty("expiresIn").GetInt32() - 30);
         await RefreshIdentityAsync(cancellationToken);
+        if(OwnerCandidate && ReadDevice() is string device)
+        {
+            try { ApplyVerifiedSession(await RequestAsync("owner/device/resume",HttpMethod.Post,new {deviceToken=device},cancellationToken)); await RefreshIdentityAsync(cancellationToken); }
+            catch(ModerationApiException error) when(error.Status==HttpStatusCode.Forbidden) { if(File.Exists(DevicePath))File.Delete(DevicePath); }
+        }
     }
     public async Task<JsonElement> RefreshIdentityAsync(CancellationToken cancellationToken = default)
     {
         var me = await RequestAsync("me", HttpMethod.Get, cancellationToken: cancellationToken);
         Role = me.GetProperty("role").GetString() ?? "user";
         OwnerCandidate = me.GetProperty("ownerCandidate").GetBoolean(); return me;
+    }
+    public void ApplyVerifiedSession(JsonElement response)
+    {
+        if (_token is not null && response.TryGetProperty("sessionExpiresIn",out var lifetime))
+            _expires=DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(lifetime.GetInt32(),1,7200)-30);
     }
     public void Reset() { _token = null; _uuid = ""; _expires = default; Role = "user"; OwnerCandidate = false; }
     public async Task SignOutAsync()

@@ -108,3 +108,39 @@ test('admins can stop maintenance without changing other global settings',async(
  await api('admin/role','POST',{uuid:'b'.repeat(32),role:'user'},tokens.owner);
  await assert.rejects(api('admin/maintenance/stop','POST',{},tokens.admin),e=>e.status===403);
 });
+
+const ownerEnvironment={OWNER_MICROSOFT_OID:'00000000-0000-0000-0000-000000000001',MICROSOFT_CLIENT_ID:'00000000-0000-0000-0000-000000000002'};
+test('remembered owner devices survive service restart but require the matching Minecraft session',async()=>{
+ const {api,pool,tokens}=await fixture(undefined,ownerEnvironment);
+ const device=await api('owner/device/register','POST',{},tokens.owner);
+ assert.match(device.deviceToken,/^[A-Za-z0-9_-]{43}$/);
+ assert.equal((await pool.query('SELECT hash FROM owner_devices')).rows[0].hash,digest(device.deviceToken));
+ await pool.query('UPDATE sessions SET owner_until=NULL');
+ const restarted=createService(pool,{...env,...ownerEnvironment});
+ await assert.rejects(restarted('owner/device/resume','POST',device,null),e=>e.status===401);
+ await assert.rejects(restarted('owner/device/resume','POST',device,tokens.user),e=>e.status===403);
+ await restarted('owner/device/resume','POST',device,tokens.owner);
+ assert.equal((await restarted('me','GET',{},tokens.owner)).role,'owner');
+});
+test('forgetting a device revokes its active elevation and prevents replay',async()=>{
+ const {api,tokens}=await fixture(undefined,ownerEnvironment);
+ const device=await api('owner/device/register','POST',{},tokens.owner);
+ await api('owner/device/forget','POST',device,tokens.owner);
+ assert.equal((await api('me','GET',{},tokens.owner)).role,'user');
+ await assert.rejects(api('owner/device/resume','POST',device,tokens.owner),e=>e.status===403);
+});
+test('changing the pinned Microsoft identity invalidates remembered devices',async()=>{
+ const {api,pool,tokens}=await fixture(undefined,ownerEnvironment);
+ const device=await api('owner/device/register','POST',{},tokens.owner);
+ const changed=createService(pool,{...env,...ownerEnvironment,OWNER_MICROSOFT_OID:'00000000-0000-0000-0000-000000000099'});
+ assert.equal((await changed('me','GET',{},tokens.owner)).role,'user');
+ await assert.rejects(changed('owner/device/resume','POST',device,tokens.owner),e=>e.status===403);
+});
+test('only a verified owner can remember a device or revoke all devices',async()=>{
+ const {api,tokens,pool}=await fixture(undefined,ownerEnvironment);
+ for(const actor of ['admin','user'])for(const path of ['owner/device/register','owner/devices/revoke-all'])await assert.rejects(api(path,'POST',{},tokens[actor]),e=>e.status===403);
+ const device=await api('owner/device/register','POST',{},tokens.owner);
+ await api('owner/devices/revoke-all','POST',{},tokens.owner);
+ assert.equal((await pool.query('SELECT * FROM owner_devices')).rows.length,0);
+ await assert.rejects(api('owner/device/resume','POST',device,tokens.owner),e=>e.status===403);
+});

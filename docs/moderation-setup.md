@@ -10,7 +10,7 @@ The API uses the separate Vercel project **ymca22/plutonium-moderation**. The ex
 
 - The sole owner is the Microsoft account **justquirk.business@gmail.com**. Its **immutable Microsoft object ID** and **Minecraft UUID** must be verified and pinned in server environment variables. An email string, gamertag, local file, hidden button or request-supplied role never grants authority.
 - Microsoft says email/preferred_username are mutable and must not be used for authorization: [ID token claims](https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference). The configured object ID is the authority after signature, issuer, audience, expiry and tenant verification. An email alias change does not transfer ownership to whoever later obtains that address.
-- Owner verification uses Microsoft device-code sign-in; its ID token never comes from a launcher-supplied email. Owner privileges expire in 15 minutes. Minecraft sessions are verified against the official Minecraft profile API, then exchanged for opaque 30-minute service sessions. Only their SHA-256 hashes are stored.
+- Owner verification uses Microsoft device-code sign-in; its ID token never comes from a launcher-supplied email. Active owner sessions last up to two hours. Explicitly remembered Windows devices can renew them after verifying the matching Minecraft account, without another Microsoft prompt. Minecraft sessions are verified against the official Minecraft profile API, then exchanged for opaque 30-minute service sessions. Only their SHA-256 hashes are stored.
 - Owner alone can enable maintenance/change configuration, grant/revoke admins and read the audit log. Admins and owners can stop maintenance through a narrow audited recovery endpoint. Admins may restrict normal users and review appeals; they cannot restrict the owner, themselves or another admin. Disabling an admin removes its authority on the next request. Revocation is checked against the database, not a cached role claim.
 - Username and an explanation are enough to submit an appeal with CAPTCHA. A submission does not prove ownership and never automatically restores access. An admin reviews it and may request further evidence outside this system before accepting.
 - Configuration is a typed allow-list of switches. There is no remote shell, arbitrary download URL, executable script or master override key.
@@ -88,7 +88,7 @@ Both the Java client and the Windows launcher embed this file at build time. It 
 
 In the launcher, go to **Settings → Moderation & service status**. Connect the selected Minecraft account. The configured owner then selects **Verify owner with Microsoft** and completes the displayed device-code flow with the owner Microsoft account. All permissions still come from the API, regardless of what the UI displays.
 
-For this personal account, manually enter that current code at **https://www.microsoft.com/link** if the launcher's generic device-login page rejects it. The existing authentication implementation remains unchanged.
+For this personal account, manually enter that current code at **https://www.microsoft.com/link** if the launcher's generic device-login page rejects it. The Microsoft signature/issuer/audience and immutable owner checks remain enforced. The launcher and helper now open microsoft.com/link directly.
 
 During maintenance, **Open admin menu** remains available. Only a verified admin, owner, or pinned owner candidate can enter recovery; owner candidates must complete the existing Microsoft verification before changing anything. Owners and admins can select **Stop maintenance**. Navigation to normal launcher pages remains blocked until maintenance ends. In-game admins can open the maintenance admin menu and stop it; the owner uses the verified launcher session. There is no unauthenticated bypass button.
 
@@ -115,3 +115,14 @@ In the Cloudflare dashboard, open Turnstile and create a **Managed** widget for 
 9. Review hosted function logs and confirm no credentials/request bodies appear. Verify database backups and recovery before distributing enforced builds.
 
 Local tests exercise identity validation and authorization with an in-memory PostgreSQL-compatible adapter. They do not substitute for real PostgreSQL transaction/concurrency tests or live Microsoft/Vercel acceptance tests.
+
+
+## Remembered owner devices (launcher 2.0.3)
+
+After Microsoft verification, the launcher registers a cryptographically random device credential. The database stores only its hash, the pinned Minecraft UUID and Microsoft object ID. The local credential is protected using Windows DPAPI CurrentUser in `%LOCALAPPDATA%/Plutonium/owner-device.bin`. It survives launcher/PC restarts and has no scheduled expiry. It is not an email-only or local-configuration permission override.
+
+Resuming requires both this credential and a fresh service session obtained from a valid Minecraft access token for the pinned owner account. The service checks the current owner UUID and Microsoft object ID on every resume and checks device revocation for privileged session requests. Temporary sessions last two hours and renew without a Microsoft prompt while the device remains trusted. Changing owner pins, deleting the local credential, reinstalling Windows, or using another Windows account requires verification again.
+
+**Forget this device** revokes its credential and ends its service session. **Revoke all remembered devices** requires owner authority, removes all trusted credentials, and expires owner elevation on existing sessions. If all devices are lost, recover with the existing Microsoft verification flow. No device credentials or session tokens may be logged or committed.
+
+Global settings use category tabs, feature search, custom switches and a pinned Save bar. Edits do not apply until saved. A stale revision is rejected instead of overwriting another administrator's change; reload the settings view to reconcile it.

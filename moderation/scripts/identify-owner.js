@@ -7,7 +7,7 @@ const microsoft='https://login.microsoftonline.com/consumers/oauth2/v2.0/';
 const start=await fetch(microsoft+'devicecode',{method:'POST',body:new URLSearchParams({client_id:clientId,scope:'openid profile email'}),signal:AbortSignal.timeout(15000)});
 if(!start.ok)throw new Error('Device-code sign-in could not start. Check the registration and public-client flow setting.');
 const flow=await start.json();
-console.log('Open https://microsoft.com/devicelogin and enter this one-time code:',flow.user_code);
+console.log('Open https://www.microsoft.com/link and enter this one-time code:',flow.user_code);
 console.log('Sign in specifically as justquirk.business@gmail.com. Do not share this code.');
 const end=Date.now()+Math.min(flow.expires_in,900)*1000;let interval=Math.max(5,flow.interval??5);
 while(Date.now()<end){

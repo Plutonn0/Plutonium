@@ -342,6 +342,18 @@ public sealed class LibraryTests : IDisposable
                 Assert.Equal("MAINTENANCE MODE",((System.Windows.Controls.TextBlock)typeof(MainWindow).GetField("_maintenanceTitle",reflection)!.GetValue(window)!).Text);
                 typeof(MainWindow).GetField("_maintenance",reflection)!.SetValue(window,false);
                 maintenancePanel.Visibility=System.Windows.Visibility.Collapsed;
+                var editorType=typeof(MainWindow).Assembly.GetType("PlutoniumLauncher.ModerationSettingsEditor")!;
+                var settingsData=System.Text.Json.JsonSerializer.SerializeToElement(new {maintenance=false,message="Scheduled maintenance",revision=7,disabledFeatures=new[]{"fly"},availableFeatures=new[]{"players","storage","spawners","tracers","fly","inventorymove","aimassist","notifications","radio","mods"}});
+                object? savedPayload=null;
+                var editor=(System.Windows.FrameworkElement)Activator.CreateInstance(editorType,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic,null,new object[]{settingsData,new Func<object,Task>(payload=>{savedPayload=payload;return Task.CompletedTask;}),new Func<Task>(()=>Task.CompletedTask)},null)!;
+                editor.Measure(new System.Windows.Size(850,580));editor.Arrange(new System.Windows.Rect(0,0,850,580));editor.UpdateLayout();
+                var saveButton=(System.Windows.Controls.Button)editorType.GetProperty("Save",reflection)!.GetValue(editor)!;
+                var reasonInput=(System.Windows.Controls.TextBox)editorType.GetProperty("Reason",reflection)!.GetValue(editor)!;
+                Assert.False(saveButton.IsEnabled);reasonInput.Text="New maintenance reason";Assert.True(saveButton.IsEnabled);
+                var saveBounds=saveButton.TransformToAncestor(editor).TransformBounds(new System.Windows.Rect(saveButton.RenderSize));Assert.True(saveBounds.Bottom<=580);Assert.True(reasonInput.ActualHeight>=90);
+                if(analyticsPreview is not null){var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap(1700,1160,192,192,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(editor);var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));using var output=File.Create(Path.Combine(analyticsPreview,"moderation-settings.png"));encoder.Save(output);}
+                saveButton.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                Assert.NotNull(savedPayload);var payloadJson=System.Text.Json.JsonSerializer.SerializeToElement(savedPayload);Assert.Equal(7,payloadJson.GetProperty("revision").GetInt32());Assert.Equal("fly",payloadJson.GetProperty("disabledFeatures")[0].GetString());
                 var splash = new SplashWindow();
                 splash.SetStatus("Checking client files…");
                 Assert.Contains("Checking", ((System.Windows.Controls.TextBlock)splash.FindName("StatusText")).Text);

@@ -132,29 +132,37 @@ public partial class MainWindow
             content.Children.Add(Label("Cloud moderation is not active in this build. The owner must deploy the API, configure Microsoft identity and bundle its HTTPS address before publishing. No local email check grants administrator access.",12,true));
             return;
         }
-        content.Children.Add(Label("Only verified server permissions unlock these tools. Owner privileges expire after 15 minutes.",12,true));
+        content.Children.Add(Label("Manage your community, review appeals and control availability.",13,true));
+        if (!_moderation.HasSession && !string.IsNullOrEmpty(_config?.SelectedAccountId)) await ConnectModerationAsync();
         if (!_moderation.HasSession)
         {
             content.Children.Add(ActionButton("CONNECT CURRENT ACCOUNT",async()=>{await ConnectModerationAsync(); await ShowModerationAsync();})); return;
         }
         var me=await _moderation.RefreshIdentityAsync(_moderationLifetime.Token);
         content.Children.Add(Label($"{me.GetProperty("username").GetString()} · {_moderation.Role}",16));
-        content.Children.Add(ActionButton("DISCONNECT MODERATION",async()=>{_serviceConnected=false;await _moderation.SignOutAsync(); await RefreshPolicyAsync(); await ShowModerationAsync();}));
+        content.Children.Add(ActionButton("FORGET THIS DEVICE",async()=>{_serviceConnected=false;await _moderation.ForgetDeviceAsync(); await RefreshPolicyAsync(); await ShowModerationAsync();}));
+        if (_moderation.Role=="owner") content.Children.Add(ActionButton("REVOKE ALL REMEMBERED DEVICES",async()=>{
+            if(MessageBox.Show(this,"Require Microsoft verification again on every remembered device?","Revoke remembered access",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;
+            await _moderation.RequestAsync("owner/devices/revoke-all",HttpMethod.Post,new {});await _moderation.ForgetDeviceAsync();await ShowModerationAsync();
+        }));
         if (_moderation.OwnerCandidate && _moderation.Role!="owner")
         {
-            var prompt=Label("Owner: authenticate justquirk.business@gmail.com with Microsoft to unlock global controls.",12,true); content.Children.Add(prompt);
+            var prompt=Label("Verify once with your owner Microsoft account. This Windows device will stay remembered until you forget or revoke it.",14,true); content.Children.Add(Card(prompt));
+            var code=ModerationSettingsEditor.Field("",16); code.IsReadOnly=true; code.Visibility=Visibility.Collapsed; code.FontSize=24; content.Children.Add(code);
+            content.Children.Add(ActionButton("COPY SIGN-IN CODE",()=>{if(code.Text.Length>0)Clipboard.SetText(code.Text);return Task.CompletedTask;}));
             content.Children.Add(ActionButton("VERIFY OWNER WITH MICROSOFT",async()=>
             {
                 var flow=await _moderation.RequestAsync("owner/start",HttpMethod.Post,new {},_moderationLifetime.Token);
                 var interval=flow.GetProperty("interval").GetInt32();
-                prompt.Text="Open microsoft.com/devicelogin and enter "+flow.GetProperty("userCode").GetString()+". Use your owner account. Waiting for confirmation…";
-                OpenLocation("https://microsoft.com/devicelogin");
+                code.Text=flow.GetProperty("userCode").GetString(); code.Visibility=Visibility.Visible;
+                prompt.Text="Enter this code at microsoft.com/link using your owner account. Waiting for confirmation…";
+                OpenLocation("https://www.microsoft.com/link");
                 using var timeout=CancellationTokenSource.CreateLinkedTokenSource(_moderationLifetime.Token); timeout.CancelAfter(TimeSpan.FromSeconds(Math.Min(900,flow.GetProperty("expiresIn").GetInt32())));
                 while(true)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(interval),timeout.Token);
                     var result=await _moderation.RequestAsync("owner/poll",HttpMethod.Post,new {},timeout.Token);
-                    if (!result.GetProperty("pending").GetBoolean()) break;
+                    if (!result.GetProperty("pending").GetBoolean()) { _moderation.ApplyVerifiedSession(result); await _moderation.RememberDeviceAsync(); break; }
                     if(result.TryGetProperty("interval",out var next)) interval=next.GetInt32();
                 }
                 await _moderation.RefreshIdentityAsync(); await RefreshPolicyAsync(); await ShowModerationAsync();
@@ -213,7 +221,7 @@ public partial class MainWindow
     {
         var data=await _moderation.RequestAsync("admin/users?after="+Uri.EscapeDataString(after)+"&search="+Uri.EscapeDataString(query),HttpMethod.Get);var detail=ModerationDetail(content);
         detail.Children.Add(Label("Registered accounts · 100 per page. Search covers all accounts. No emails or account tokens.",12,true));
-        var search=new TextBox { Text=query, MaxLength=16, Margin=new Thickness(0,10,0,10), ToolTip="Search all accounts by username" };detail.Children.Add(search);
+        var search=ModerationSettingsEditor.Field(query,16);search.ToolTip="Search all accounts by username";detail.Children.Add(search);
         detail.Children.Add(ActionButton("SEARCH ALL ACCOUNTS",()=>ShowModerationUsersAsync(content,"",search.Text.Trim())));
         var rows=new StackPanel();detail.Children.Add(rows);
         if(data.GetProperty("users").GetArrayLength()==0) rows.Children.Add(Card(Label("No accounts match this search.",14,true)));
@@ -221,7 +229,8 @@ public partial class MainWindow
         {
             var uuid=user.GetProperty("uuid").GetString();var name=user.GetProperty("username").GetString()!;var disabled=user.GetProperty("disabled").GetBoolean();var role=user.GetProperty("role").GetString();
             var row=new StackPanel();row.Children.Add(Label(name+" · "+role+(disabled?" · DISABLED":""),16));
-            var reason=new TextBox {Text=user.GetProperty("reason").GetString(),ToolTip="Restriction reason",MaxLength=500,Margin=new Thickness(0,8,0,8)};row.Children.Add(reason);
+            row.Children.Add(Label("Restriction reason",12,true));
+            var reason=ModerationSettingsEditor.Field(user.GetProperty("reason").GetString()??"",500,true);row.Children.Add(reason);
             var actions=new WrapPanel();actions.Children.Add(ActionButton(disabled?"RESTORE CLIENT ACCESS":"DISABLE CLIENT",async()=>
             {
                 if(MessageBox.Show(this,$"{(disabled?"Restore":"Disable")} Plutonium client access for {name}?","Confirm account action",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
@@ -261,24 +270,16 @@ public partial class MainWindow
     }
     private async Task ShowRemoteConfigAsync(StackPanel content)
     {
-        var config=await _moderation.RequestAsync("admin/config",HttpMethod.Get);var detail=ModerationDetail(content);
-        var maintenance=new CheckBox {Content="Maintenance mode",IsChecked=config.GetProperty("maintenance").GetBoolean(),Margin=new Thickness(0,15,0,10)};
-        var message=new TextBox {Text=config.GetProperty("message").GetString(),MaxLength=240};detail.Children.Add(maintenance);detail.Children.Add(message);
-        detail.Children.Add(Label("Globally disabled features",16));var checks=new List<CheckBox>();
-        var disabled=config.GetProperty("disabledFeatures").EnumerateArray().Select(v=>v.GetString()).ToHashSet();
-        foreach(var feature in config.GetProperty("availableFeatures").EnumerateArray()) {var id=feature.GetString()!;var box=new CheckBox {Content=id,Tag=id,IsChecked=disabled.Contains(id),Margin=new Thickness(0,4,0,4)};checks.Add(box);detail.Children.Add(box);}
-        detail.Children.Add(ActionButton("SAVE GLOBAL SETTINGS",async()=>
-        {
-            await _moderation.RequestAsync("admin/config",HttpMethod.Put,new {maintenance=maintenance.IsChecked==true,message=message.Text,disabledFeatures=checks.Where(c=>c.IsChecked==true).Select(c=>(string)c.Tag).ToArray(),revision=config.GetProperty("revision").GetInt32()});
+        var config=await _moderation.RequestAsync("admin/config",HttpMethod.Get);
+        _liveStats=null;_statsStatus=null;
+        _libraryPage.Tag="moderation";_libraryPage.Children.Clear();
+        var editor=new ModerationSettingsEditor(config,async payload=>{
+            await _moderation.RequestAsync("admin/config",HttpMethod.Put,payload);
             await RefreshPolicyAsync();await ShowRemoteConfigAsync(content);
-        }));
-        detail.Children.Add(ActionButton("DISABLE MAINTENANCE",async()=>
-        {
-            var latest=await _moderation.RequestAsync("admin/config",HttpMethod.Get);
-            await _moderation.RequestAsync("admin/config",HttpMethod.Put,new {maintenance=false,message=latest.GetProperty("message").GetString(),disabledFeatures=latest.GetProperty("disabledFeatures").EnumerateArray().Select(v=>v.GetString()).ToArray(),revision=latest.GetProperty("revision").GetInt32()});
-            await RefreshPolicyAsync();await ShowRemoteConfigAsync(content);
-        }));
+        },ShowModerationAsync);
+        _libraryPage.Children.Add(editor);
     }
+
     private async Task ShowAuditAsync(StackPanel content)
     {
         var data=await _moderation.RequestAsync("admin/audit",HttpMethod.Get);var detail=ModerationDetail(content);

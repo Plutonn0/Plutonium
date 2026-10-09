@@ -37,3 +37,8 @@ CREATE TABLE IF NOT EXISTS audit (
 CREATE TABLE IF NOT EXISTS rate_limits (
  key text PRIMARY KEY, count int NOT NULL, expires timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS owner_devices (
+ hash text PRIMARY KEY, uuid text NOT NULL REFERENCES accounts(uuid), microsoft_oid text NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(), last_used timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS owner_device_hash text;

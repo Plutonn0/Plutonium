@@ -13,8 +13,12 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
   }
   async function principal(bearer, db = pool, lock = false) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(bearer ?? '')) throw new ApiError(401, 'Sign in to continue.');
-    const { rows } = await db.query(`SELECT a.*,s.owner_until,s.hash FROM sessions s JOIN accounts a ON a.uuid=s.uuid WHERE s.hash=$1 AND s.expires>now()${lock ? ' FOR UPDATE' : ''}`, [digest(bearer)]);
+    const { rows } = await db.query(`SELECT a.*,s.owner_until,s.hash,s.owner_device_hash FROM sessions s JOIN accounts a ON a.uuid=s.uuid WHERE s.hash=$1 AND s.expires>now()${lock ? ' FOR UPDATE' : ''}`, [digest(bearer)]);
     if (!rows[0]) throw new ApiError(401, 'Session expired. Sign in again.');
+    if(rows[0].owner_device_hash) {
+      const trusted=(await db.query('SELECT hash FROM owner_devices WHERE hash=$1 AND uuid=$2 AND microsoft_oid=$3',[rows[0].owner_device_hash,env.OWNER_MINECRAFT_UUID,env.OWNER_MICROSOFT_OID])).rows;
+      if(!trusted.length) rows[0].owner_until=null;
+    }
     return { ...rows[0], access: roleFor(rows[0], rows[0], env) };
   }
   async function configuration(db = pool) {
@@ -81,6 +85,33 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
     await limit(`session:${me.hash}`, 120);
     if (path === 'session' && method === 'DELETE') { await pool.query('DELETE FROM sessions WHERE hash=$1', [me.hash]); return { ok: true }; }
     if (path === 'me' && method === 'GET') return { username: me.username, uuid: me.uuid, role: me.access, disabled: me.disabled, reason: me.reason, ownerCandidate: me.uuid === env.OWNER_MINECRAFT_UUID };
+    if(path==='owner/device/register' && method==='POST') return mutation(bearer,'owner',async(db,actor)=>{
+      requireOwnerConfig(env);
+      const credential=token();
+      await db.query('INSERT INTO owner_devices(hash,uuid,microsoft_oid) VALUES($1,$2,$3)',[digest(credential),actor.uuid,env.OWNER_MICROSOFT_OID]);
+      await db.query('UPDATE sessions SET owner_device_hash=$2 WHERE hash=$1',[actor.hash,digest(credential)]);
+      await audit(db,actor,'owner.device.register',actor.uuid);
+      return {deviceToken:credential};
+    });
+    if(path==='owner/device/resume' && method==='POST') {
+      requireOwnerConfig(env);await limit(`device:${me.uuid}`,6);
+      if(me.disabled||me.uuid!==env.OWNER_MINECRAFT_UUID||!/^[A-Za-z0-9_-]{43}$/.test(body.deviceToken??'')) throw new ApiError(403,'Verify the owner account on this device.');
+      const device=(await pool.query('SELECT hash FROM owner_devices WHERE hash=$1 AND uuid=$2 AND microsoft_oid=$3',[digest(body.deviceToken),me.uuid,env.OWNER_MICROSOFT_OID])).rows[0];
+      if(!device) throw new ApiError(403,'This device is no longer trusted. Verify with Microsoft again.');
+      await pool.query('UPDATE sessions SET owner_until=$2,expires=$2,owner_device_hash=$3 WHERE hash=$1',[me.hash,new Date(Date.now()+7200000),device.hash]);
+      await pool.query('UPDATE owner_devices SET last_used=now() WHERE hash=$1',[device.hash]);
+      return {pending:false,role:'owner',sessionExpiresIn:7200};
+    }
+    if(path==='owner/device/forget' && method==='POST') {
+      if(!/^[A-Za-z0-9_-]{43}$/.test(body.deviceToken??''))throw new ApiError(400,'Invalid device credential.');
+      await pool.query('DELETE FROM owner_devices WHERE hash=$1 AND uuid=$2',[digest(body.deviceToken),me.uuid]);
+      return {ok:true};
+    }
+    if(path==='owner/devices/revoke-all' && method==='POST') return mutation(bearer,'owner',async(db,actor)=>{
+      await db.query('DELETE FROM owner_devices WHERE uuid=$1',[actor.uuid]);
+      await db.query('UPDATE sessions SET owner_until=NULL WHERE uuid=$1',[actor.uuid]);
+      await audit(db,actor,'owner.devices.revoke','all');return {ok:true};
+    });
     if (path === 'heartbeat' && method === 'POST') {
       if (!['launcher', 'client'].includes(body.kind)) throw new ApiError(400, 'Invalid heartbeat kind.');
       if (body.kind === 'launcher') await pool.query('UPDATE accounts SET last_seen=now(),launcher_version=$2 WHERE uuid=$1', [me.uuid, String(body.version ?? '').slice(0,32)]);
@@ -100,7 +131,7 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
       const flow = await response.json();
       const interval = Math.max(5, Number(flow.interval) || 5);
       await pool.query('INSERT INTO owner_flows(hash,device_code,expires,next_poll,interval_seconds) VALUES($1,$2,$3,$4,$5) ON CONFLICT(hash) DO UPDATE SET device_code=$2,expires=$3,next_poll=$4,interval_seconds=$5', [me.hash, flow.device_code, new Date(Date.now()+Math.min(900,flow.expires_in)*1000), new Date(Date.now()+interval*1000), interval]);
-      return { userCode: flow.user_code, verificationUri: 'https://microsoft.com/devicelogin', interval, expiresIn: flow.expires_in };
+      return { userCode: flow.user_code, verificationUri: 'https://www.microsoft.com/link', interval, expiresIn: flow.expires_in };
     }
     if (path === 'owner/poll' && method === 'POST') {
       requireOwnerConfig(env);
@@ -118,10 +149,10 @@ export function createService(pool, env, fetcher = fetch, ownerVerifier = verify
       try {
         await db.query('BEGIN');const current=await principal(bearer,db,true);
         if(current.uuid!==env.OWNER_MINECRAFT_UUID||current.disabled)throw new ApiError(403,'Owner account required.');
-        await db.query('UPDATE sessions SET owner_until=$2 WHERE hash=$1', [me.hash, new Date(Date.now()+15*60*1000)]);
+        await db.query('UPDATE sessions SET owner_until=$2,expires=$2,owner_device_hash=NULL WHERE hash=$1', [me.hash, new Date(Date.now()+2*60*60*1000)]);
         await audit(db,current,'owner.signin',current.uuid);await db.query('COMMIT');
       }catch(error){await db.query('ROLLBACK');throw error;}finally{db.release();}
-      return { pending: false, role: 'owner', expiresIn: 900 };
+      return { pending: false, role: 'owner', expiresIn: 7200, sessionExpiresIn: 7200 };
     }
     if (!path.startsWith('admin/')) throw new ApiError(404, 'Endpoint not found.');
     authorize(me.access, 'admin');

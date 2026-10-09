@@ -33,6 +33,10 @@ An appeal alone **does not verify account ownership**. It enters the review queu
 | `POST /owner/start` | Begin Microsoft device-code verification | Pinned owner Minecraft UUID |
 | `POST /owner/poll` | Poll no faster than returned interval | Same owner session |
 | `POST /admin/maintenance/stop` | Disable maintenance only; preserve reason and feature switches; audited | Admin/owner |
+| `POST /owner/device/register` | Issue remembered device credential; store returned token only with OS encryption | Verified owner |
+| `POST /owner/device/resume` | `{deviceToken}` resumes a two-hour owner session | Matching verified Minecraft session + unrevoked device credential |
+| `POST /owner/device/forget` | `{deviceToken}` revokes this account’s device credential | Matching service session |
+| `POST /owner/devices/revoke-all` | Revoke all remembered owner devices and active owner elevation | Owner |
 | `GET /admin/stats` | Active accounts/clients, installs, weekly activity, restrictions, pending appeals | Owner |
 | `GET /admin/users?after=UUID&search=NAME` | Accounts in stable UUID order, 100 per page; optional username search, response `nextCursor` | Admin/owner |
 | `POST /admin/restriction` | `{uuid,disabled,reason}` | Admin/owner; protected targets denied |
