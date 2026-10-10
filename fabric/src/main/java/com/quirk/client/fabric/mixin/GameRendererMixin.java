@@ -10,7 +10,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(net.minecraft.client.renderer.GameRenderer.class)
 abstract class GameRendererMixin {
     @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
-    private void quirk$hideHandWhileFreecam(float partialTick, boolean renderHands, Matrix4f projection, CallbackInfo ci) {
+    private void quirk$hideHandWhileFreecam(
+            float partialTick, boolean renderHands, Matrix4f projection, CallbackInfo ci) {
         if (Quirk.freecam()) ci.cancel();
     }
 }

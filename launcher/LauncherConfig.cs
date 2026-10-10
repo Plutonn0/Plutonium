@@ -12,7 +12,10 @@ public sealed class LauncherConfig
     public int MaximumMemoryGb { get; set; } = 4;
     public int ScreenWidth { get; set; } = 1920;
     public int ScreenHeight { get; set; } = 1080;
-    public bool Fullscreen { get; set; }
+    public bool Fullscreen
+    {
+        get; set;
+    }
     public string SelectedProfile { get; set; } = "standalone";
     public string SelectedAccountId { get; set; } = string.Empty;
     public string InstallationId { get; set; } = Guid.NewGuid().ToString();
@@ -28,27 +31,30 @@ public sealed class LauncherConfig
     public string LauncherManifestUrl { get; set; } = "https://github.com/Plutonn0/Plutonium/releases/latest/download/launcher.json";
 
     [JsonIgnore]
-    public string? DataRootOverride { get; set; }
+    public string? DataRootOverride
+    {
+        get; set;
+    }
 
     [JsonIgnore]
-    public string DataDirectory => DataRootOverride
-        ?? Environment.GetEnvironmentVariable("PLUTONIUM_LAUNCHER_HOME")
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Plutonium Client");
+    public string DataDirectory => DataRootOverride ?? Environment.GetEnvironmentVariable("PLUTONIUM_LAUNCHER_HOME") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Plutonium Client");
 
     [JsonIgnore]
     public string ConfigPath => Path.Combine(DataDirectory, "launcher.json");
 
     public static async Task<LauncherConfig> LoadAsync(CancellationToken cancellationToken = default, string? dataDirectory = null)
     {
-        var config = new LauncherConfig { DataRootOverride = dataDirectory };
+        var config = new LauncherConfig
+        {
+            DataRootOverride = dataDirectory
+        };
         Directory.CreateDirectory(config.DataDirectory);
         if (File.Exists(config.ConfigPath))
         {
             try
             {
                 await using var stream = File.OpenRead(config.ConfigPath);
-                config = await JsonSerializer.DeserializeAsync<LauncherConfig>(stream, cancellationToken: cancellationToken)
-                    ?? new LauncherConfig();
+                config = await JsonSerializer.DeserializeAsync<LauncherConfig>(stream, cancellationToken: cancellationToken) ?? new LauncherConfig();
             }
             catch (JsonException)
             {
@@ -58,8 +64,10 @@ public sealed class LauncherConfig
         }
 
         config.DataRootOverride = dataDirectory;
-        if (string.IsNullOrWhiteSpace(config.ClientManifestUrl)) config.ClientManifestUrl = "https://github.com/Plutonn0/Plutonium/releases/latest/download/client.json";
-        if (string.IsNullOrWhiteSpace(config.LauncherManifestUrl)) config.LauncherManifestUrl = "https://github.com/Plutonn0/Plutonium/releases/latest/download/launcher.json";
+        if (string.IsNullOrWhiteSpace(config.ClientManifestUrl))
+            config.ClientManifestUrl = "https://github.com/Plutonn0/Plutonium/releases/latest/download/client.json";
+        if (string.IsNullOrWhiteSpace(config.LauncherManifestUrl))
+            config.LauncherManifestUrl = "https://github.com/Plutonn0/Plutonium/releases/latest/download/launcher.json";
         config.Normalize();
         return config;
     }
@@ -71,15 +79,18 @@ public sealed class LauncherConfig
         var temporary = ConfigPath + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
-        await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None,
-                         16 * 1024, FileOptions.WriteThrough))
+            await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 16 * 1024, FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(stream, this, new JsonSerializerOptions { WriteIndented = true }, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
+
+            AtomicFile.Replace(temporary, ConfigPath);
+        }
+        finally
         {
-            await JsonSerializer.SerializeAsync(stream, this, new JsonSerializerOptions { WriteIndented = true }, cancellationToken);
-            await stream.FlushAsync(cancellationToken);
+            TemporaryCleanup.DeleteFile(temporary);
         }
-        AtomicFile.Replace(temporary, ConfigPath);
-        }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
     public void Normalize()
@@ -87,14 +98,10 @@ public sealed class LauncherConfig
         MaximumMemoryGb = Math.Clamp(MaximumMemoryGb, 2, 32);
         ScreenWidth = Math.Clamp(ScreenWidth, 800, 7680);
         ScreenHeight = Math.Clamp(ScreenHeight, 600, 4320);
-        if (SelectedProfile is not ("standalone" or "fabric")) SelectedProfile = "standalone";
-        MinecraftDirectory = Path.GetFullPath(string.IsNullOrWhiteSpace(MinecraftDirectory)
-            ? Environment.GetEnvironmentVariable("PLUTONIUM_MINECRAFT_DIR")
-                ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft")
-            : MinecraftDirectory.Trim());
-        StandaloneGameDirectory = Path.GetFullPath(string.IsNullOrWhiteSpace(StandaloneGameDirectory)
-            ? MinecraftDirectory
-            : StandaloneGameDirectory.Trim());
+        if (SelectedProfile is not ("standalone" or "fabric"))
+            SelectedProfile = "standalone";
+        MinecraftDirectory = Path.GetFullPath(string.IsNullOrWhiteSpace(MinecraftDirectory) ? Environment.GetEnvironmentVariable("PLUTONIUM_MINECRAFT_DIR") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft") : MinecraftDirectory.Trim());
+        StandaloneGameDirectory = Path.GetFullPath(string.IsNullOrWhiteSpace(StandaloneGameDirectory) ? MinecraftDirectory : StandaloneGameDirectory.Trim());
     }
 }
 

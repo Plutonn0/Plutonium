@@ -11,15 +11,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LightTexture.class)
 abstract class LightTextureMixin {
-    @Inject(method="updateLightTexture",at=@At("RETURN"))
-    private void quirk$whiteLightmap(float partial,org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci){Quirk.lightmap((LightTexture)(Object)this);}
-    @Inject(method = "getBrightness(Lnet/minecraft/world/level/dimension/DimensionType;I)F", at = @At("HEAD"), cancellable = true)
-    private static void quirk$fullbright(DimensionType dimension, int lightLevel, CallbackInfoReturnable<Float> cir) {
+    @Inject(method = "updateLightTexture", at = @At("RETURN"))
+    private void quirk$whiteLightmap(
+            float partial, org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+        Quirk.lightmap((LightTexture) (Object) this);
+    }
+
+    @Inject(
+            method = "getBrightness(Lnet/minecraft/world/level/dimension/DimensionType;I)F",
+            at = @At("HEAD"),
+            cancellable = true)
+    private static void quirk$fullbright(
+            DimensionType dimension, int lightLevel, CallbackInfoReturnable<Float> cir) {
         if (Quirk.fullbright()) cir.setReturnValue(1.0F);
     }
 
     @Inject(method = "getBrightness(FI)F", at = @At("HEAD"), cancellable = true)
-    private static void quirk$fullbright(float ambientLight, int lightLevel, CallbackInfoReturnable<Float> cir) {
+    private static void quirk$fullbright(
+            float ambientLight, int lightLevel, CallbackInfoReturnable<Float> cir) {
         if (Quirk.fullbright()) cir.setReturnValue(1.0F);
     }
 

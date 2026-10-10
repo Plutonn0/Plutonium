@@ -8,7 +8,8 @@ public partial class MainWindow
 
     private void RefreshAccounts()
     {
-        if (_accounts is null || _config is null) return;
+        if (_accounts is null || _config is null)
+            return;
         var saved = _accounts.GetAccounts();
         if (saved.Count > 0 && !saved.Any(a => a.Id == _config.SelectedAccountId))
             _config.SelectedAccountId = saved[0].Id;
@@ -25,49 +26,51 @@ public partial class MainWindow
 
     private async void AddAccount_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
     {
-        if (_accounts is null || _config is null) return;
+        if (_accounts is null || _config is null)
+            return;
         SetStage("SIGNING IN", "Choose a Microsoft account in your browser");
         var result = await _accounts.AddAsync(OperationToken);
         _config.SelectedAccountId = result.Account.Id;
         await _config.SaveAsync(OperationToken);
         _session = result.Session;
-        _serviceConnected=false;
+        _serviceConnected = false;
         await _moderation.SignOutAsync();
-        if (ModerationService.Configured) await ConnectModerationAsync();
+        if (ModerationService.Configured)
+            await ConnectModerationAsync();
         RefreshAccounts();
         ShowSignedInAccount(_session);
         SetStage("READY", "Account added");
     });
-
     private async void UseAccount_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
     {
-        if (_config is null || AccountList.SelectedItem is not SavedAccount selected) return;
+        if (_config is null || AccountList.SelectedItem is not SavedAccount selected)
+            return;
         _config.SelectedAccountId = selected.Id;
         await _config.SaveAsync(OperationToken);
         _session = null;
-        _serviceConnected=false;
+        _serviceConnected = false;
         await _moderation.SignOutAsync();
         RefreshAccounts();
         Navigate("play");
         SetStage("READY", $"Using {selected.Name}");
     });
-
     private async void RemoveAccount_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
     {
-        if (_config is null || _accounts is null || AccountList.SelectedItem is not SavedAccount selected) return;
+        if (_config is null || _accounts is null || AccountList.SelectedItem is not SavedAccount selected)
+            return;
         await _accounts.RemoveAsync(selected.Id, OperationToken);
         if (_config.SelectedAccountId == selected.Id)
         {
             _config.SelectedAccountId = string.Empty;
             _session = null;
-            _serviceConnected=false;
+            _serviceConnected = false;
             await _moderation.SignOutAsync();
             await _config.SaveAsync(OperationToken);
         }
+
         RefreshAccounts();
         SetStage("READY", "Account signed out of this launcher");
     });
-
     private void CloseAccounts_Click(object sender, RoutedEventArgs e) => Navigate("play");
     private void CancelOperation_Click(object sender, RoutedEventArgs e)
     {

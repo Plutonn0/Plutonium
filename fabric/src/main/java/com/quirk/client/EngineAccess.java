@@ -6,7 +6,10 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.GameRenderer;
 
 public final class EngineAccess {
-    public static boolean attack(net.minecraft.client.Minecraft minecraft) { return ((com.quirk.client.fabric.mixin.MinecraftAccess)minecraft).quirk$attack(); }
+    public static boolean attack(net.minecraft.client.Minecraft minecraft) {
+        return ((com.quirk.client.fabric.mixin.MinecraftAccess) minecraft).quirk$attack();
+    }
+
     private EngineAccess() {}
 
     public static void position(Camera camera, double x, double y, double z) {

@@ -29,10 +29,14 @@ public partial class MainWindow : Window
     private bool _stopRequested;
     private bool _initializationStarted;
     public event Action<string>? StartupProgress;
-
     public MainWindow()
     {
-        InitializeComponent(); InitializeLibraryPages(); InitializeActivity(); InitializeModeration(); _updates.Downloads = _downloads; _game.Downloads = _downloads;
+        InitializeComponent();
+        InitializeLibraryPages();
+        InitializeActivity();
+        InitializeModeration();
+        _updates.Downloads = _downloads;
+        _game.Downloads = _downloads;
         _downloads.Items.CollectionChanged += async (_, _) =>
         {
             if (_libraryPage.Visibility == Visibility.Visible && _libraryPage.Tag as string == "downloads")
@@ -43,7 +47,8 @@ public partial class MainWindow : Window
     private async void Window_Loaded(object sender, RoutedEventArgs e) => await InitializeForStartupAsync();
     public async Task InitializeForStartupAsync()
     {
-        if (_initializationStarted) return;
+        if (_initializationStarted)
+            return;
         _initializationStarted = true;
         await InitializeAsync();
     }
@@ -60,7 +65,8 @@ public partial class MainWindow : Window
             _accounts = new AccountService(_config.DataDirectory);
             RefreshAccounts();
             await RefreshPolicyAsync();
-            if (ModerationService.Configured) _moderationTimer.Start();
+            if (ModerationService.Configured)
+                _moderationTimer.Start();
             _installation = InstallationDiscovery.Detect(_config);
             _config.MinecraftDirectory = _installation.MinecraftDirectory;
             _config.StandaloneGameDirectory = _installation.StandaloneGameDirectory;
@@ -70,12 +76,11 @@ public partial class MainWindow : Window
             await EnsureJavaAsync();
             await _config.SaveAsync();
             _installation = InstallationDiscovery.Detect(_config);
-            InstallStatus.Text = _installation.HasLegacyQuirkSettings
-                ? "Legacy Quirk settings and worlds detected and preserved."
-                : "Plutonium files verified. Existing worlds, profiles, and mods are untouched.";
+            InstallStatus.Text = _installation.HasLegacyQuirkSettings ? "Legacy Quirk settings and worlds detected and preserved." : "Plutonium files verified. Existing worlds, profiles, and mods are untouched.";
             InstallIndicator.Fill = (Brush)FindResource("GreenBrush");
             await RefreshUpdateStatusAsync(applyUpdates: _config.AutomaticUpdates);
-            if (await ApplyAutomaticLauncherUpdateAsync()) return;
+            if (await ApplyAutomaticLauncherUpdateAsync())
+                return;
             SetStage("READY", "Ready to play");
             var smokeProfile = GetSmokeLaunchProfile();
             if (smokeProfile is not null)
@@ -84,13 +89,15 @@ public partial class MainWindow : Window
                 Close();
                 return;
             }
+
             if (IsSmokeTestRun)
             {
                 var installation = _installation ?? throw new InvalidOperationException("Install discovery did not complete.");
                 var java = _java ?? throw new InvalidOperationException("Java detection did not complete.");
                 var resultPath = Path.Combine(_config.DataDirectory, "smoke-result.txt");
                 await File.WriteAllTextAsync(resultPath, $"PASS\nMinecraft={installation.MinecraftDirectory}\nJava={java.DisplayVersion}\nStandalone={installation.HasStandaloneFiles}\nFabric={installation.HasFabricFiles}\n");
-                if (!Environment.GetCommandLineArgs().Contains("--smoke-startup")) Close();
+                if (!Environment.GetCommandLineArgs().Contains("--smoke-startup"))
+                    Close();
             }
         }
         catch (Exception ex)
@@ -109,16 +116,19 @@ public partial class MainWindow : Window
         finally
         {
             SetBusy(false);
-            if (_needsRepair) { PlayButton.Content = "REPAIR & PLAY"; SetStage("REPAIR NEEDED", "Setup failed. Repair the installation to continue."); }
+            if (_needsRepair)
+            {
+                PlayButton.Content = "REPAIR & PLAY";
+                SetStage("REPAIR NEEDED", "Setup failed. Repair the installation to continue.");
+            }
         }
     }
 
     private async Task EnsureJavaAsync(CancellationToken cancellationToken = default)
     {
-        if (_config is null) return;
-        _java = Environment.GetEnvironmentVariable("PLUTONIUM_FORCE_JAVA_INSTALL") == "1"
-            ? null
-            : await Task.Run(() => JavaRuntimeDetector.FindAsync(_config.JavaPath, cancellationToken), cancellationToken);
+        if (_config is null)
+            return;
+        _java = Environment.GetEnvironmentVariable("PLUTONIUM_FORCE_JAVA_INSTALL") == "1" ? null : await Task.Run(() => JavaRuntimeDetector.FindAsync(_config.JavaPath, cancellationToken), cancellationToken);
         if (_java is null)
         {
             SetStage("SETTING UP", "Installing a verified Java 21 runtime");
@@ -126,6 +136,7 @@ public partial class MainWindow : Window
             var percent = new Progress<double>(value => Progress.Value = value * 100);
             _java = await new JavaRuntimeInstaller(dataDirectory: _config.DataDirectory, downloads: _downloads).InstallAsync(percent, cancellationToken);
         }
+
         _config.JavaPath = _java.ExecutablePath;
         JavaVersion.Text = _java.DisplayVersion;
         await _config.SaveAsync(cancellationToken);
@@ -139,13 +150,15 @@ public partial class MainWindow : Window
 
     private async void Play_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
     {
-        var serverToJoin = _serverToJoin; _serverToJoin = null;
-        if (_config is null) throw new InvalidOperationException("Launcher settings have not loaded.");
+        var serverToJoin = _serverToJoin;
+        _serverToJoin = null;
+        if (_config is null)
+            throw new InvalidOperationException("Launcher settings have not loaded.");
         SetStage("CHECKING", "Verifying Plutonium and game files");
         _installation = await _bootstrap.InstallOrRepairAsync(_config, new Progress<string>(SetInstallProgress), OperationToken);
         await EnsureJavaAsync(OperationToken);
-
-        if (_accounts is null) throw new InvalidOperationException("Accounts have not loaded.");
+        if (_accounts is null)
+            throw new InvalidOperationException("Accounts have not loaded.");
         if (string.IsNullOrEmpty(_config.SelectedAccountId))
         {
             SetStage("SIGNING IN", "Continue securely in your browser");
@@ -159,26 +172,26 @@ public partial class MainWindow : Window
             SetStage("SIGNING IN", "Refreshing your Minecraft session");
             _session = await _accounts.AuthenticateAsync(_config.SelectedAccountId, OperationToken);
         }
+
         ShowSignedInAccount(_session);
         await RequireClientAccessAsync();
-
         SetStage("UPDATING", "Checking configured Plutonium updates");
         await RefreshUpdateStatusAsync(applyUpdates: _config.AutomaticUpdates);
-        if (await ApplyAutomaticLauncherUpdateAsync()) return;
+        if (await ApplyAutomaticLauncherUpdateAsync())
+            return;
         SetStage("LAUNCHING", "Preparing Minecraft 1.21.11");
         Progress.Visibility = Visibility.Visible;
         Progress.Value = 0;
         var gameProgress = new Progress<string>(SetInstallProgress);
         var byteProgress = new Progress<double>(value => Progress.Value = value * 100);
-        _gameProcess = await _game.PrepareAndLaunchAsync(_config, _java!, _session, _fabricSelected,
-            gameProgress, byteProgress, OperationToken, serverToJoin);
+        _gameProcess = await _game.PrepareAndLaunchAsync(_config, _java!, _session, _fabricSelected, gameProgress, byteProgress, OperationToken, serverToJoin);
         _needsRepair = false;
         MonitorGameProcess(_gameProcess);
-        if (_gameProcess is null) return;
+        if (_gameProcess is null)
+            return;
         SetStage("STARTING", "Waiting for the Minecraft window");
         PlayButton.Content = "STARTING";
     });
-
     private void ShowSignedInAccount(MSession session)
     {
         RefreshAccounts();
@@ -190,7 +203,8 @@ public partial class MainWindow : Window
 
     private async void Repair_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
     {
-        if (_config is null) return;
+        if (_config is null)
+            return;
         SetStage("REPAIRING", "Verifying and repairing Plutonium files");
         _installation = await _bootstrap.InstallOrRepairAsync(_config, new Progress<string>(SetInstallProgress), OperationToken);
         await EnsureJavaAsync(OperationToken);
@@ -200,15 +214,14 @@ public partial class MainWindow : Window
         _needsRepair = false;
         SetStage("READY", "Repair complete");
     });
-
     private async void Updates_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(async () =>
     {
         Navigate("installed");
         SetStage("CHECKING", "Checking launcher and client release feeds");
         await RefreshUpdateStatusAsync();
-        if (_gameProcess is null) SetStage(_needsRepair ? "REPAIR NEEDED" : "READY", "Update check complete");
+        if (_gameProcess is null)
+            SetStage(_needsRepair ? "REPAIR NEEDED" : "READY", "Update check complete");
     });
-
     private void MonitorGameProcess(Process process)
     {
         var handled = false;
@@ -219,7 +232,8 @@ public partial class MainWindow : Window
         StopGameButton.Visibility = Visibility.Visible;
         void Ended()
         {
-            if (handled || !IsLoaded) return;
+            if (handled || !IsLoaded)
+                return;
             handled = true;
             _gameMonitor?.Stop();
             StopGameButton.Visibility = Visibility.Collapsed;
@@ -235,19 +249,33 @@ public partial class MainWindow : Window
                 InstallStatus.Text = "Checking the game output and crash report for a likely cause…";
                 _ = DiagnoseCrashAsync(started, code);
             }
-            else SetStage("READY", "Minecraft closed");
-            if (GetSmokeLaunchProfile() is null) process.Dispose();
+            else
+                SetStage("READY", "Minecraft closed");
+            if (GetSmokeLaunchProfile() is null)
+                process.Dispose();
         }
+
         process.Exited += (_, _) => Dispatcher.InvokeAsync(Ended);
         process.EnableRaisingEvents = true;
-        if (process.HasExited) Ended();
-        if (handled) return;
-        _gameMonitor = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        if (process.HasExited)
+            Ended();
+        if (handled)
+            return;
+        _gameMonitor = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
         _gameMonitor.Tick += (_, _) =>
         {
-            if (handled) return;
+            if (handled)
+                return;
             process.Refresh();
-            if (process.HasExited) { Ended(); return; }
+            if (process.HasExited)
+            {
+                Ended();
+                return;
+            }
+
             _gameWindowVisible = process.MainWindowHandle != IntPtr.Zero;
             PlayButton.Content = _gameWindowVisible ? "PLAYING" : "STARTING";
             SetStage(_gameWindowVisible ? "PLAYING" : "STARTING", _gameWindowVisible ? "Minecraft is running" : "Java is running; waiting for the Minecraft window");
@@ -262,13 +290,24 @@ public partial class MainWindow : Window
 
     private void StopGame_Click(object sender, RoutedEventArgs e)
     {
-        try { if (_gameProcess is { HasExited: false }) { _stopRequested = true; _gameProcess.Kill(entireProcessTree: true); } }
-        catch (Exception ex) { ShowError(ex); }
+        try
+        {
+            if (_gameProcess is { HasExited: false })
+            {
+                _stopRequested = true;
+                _gameProcess.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex);
+        }
     }
 
     private async Task RunOperationAsync(Func<Task> operation, bool affectsClientInstallation = true)
     {
-        if (_busy || _gameProcess is not null) return;
+        if (_busy || _gameProcess is not null)
+            return;
         _operation = new CancellationTokenSource();
         SetBusy(true);
         try
@@ -282,7 +321,8 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             InstallStatus.Text = ErrorReport.Redact(ex.Message);
-            if (affectsClientInstallation && ex is (IOException or InvalidDataException)) _needsRepair = true;
+            if (affectsClientInstallation && ex is (IOException or InvalidDataException))
+                _needsRepair = true;
             SetStage(_needsRepair ? "REPAIR NEEDED" : "ERROR", InstallStatus.Text);
             ShowError(ex);
         }
@@ -301,6 +341,7 @@ public partial class MainWindow : Window
                 PlayButton.Content = _needsRepair ? "REPAIR & PLAY" : "PLAY";
                 PlayButton.IsEnabled = true;
             }
+
             Progress.Visibility = Visibility.Collapsed;
         }
     }
@@ -339,7 +380,8 @@ public partial class MainWindow : Window
     {
         StartupProgress?.Invoke(value);
         InstallStatus.Text = value;
-        if (_busy) ActivityText.Text = value;
+        if (_busy)
+            ActivityText.Text = value;
     }
 
     private void SelectProfile(bool fabric, bool persist = true)
@@ -361,15 +403,25 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void Standalone_Click(object sender, RoutedEventArgs e) { SelectProfile(false); await RunOperationAsync(() => RefreshUpdateStatusAsync()); }
-    private async void Fabric_Click(object sender, RoutedEventArgs e) { SelectProfile(true); await RunOperationAsync(() => RefreshUpdateStatusAsync()); }
+    private async void Standalone_Click(object sender, RoutedEventArgs e)
+    {
+        SelectProfile(false);
+        await RunOperationAsync(() => RefreshUpdateStatusAsync());
+    }
+
+    private async void Fabric_Click(object sender, RoutedEventArgs e)
+    {
+        SelectProfile(true);
+        await RunOperationAsync(() => RefreshUpdateStatusAsync());
+    }
+
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
-
     protected override void OnClosed(EventArgs e)
     {
-        _modSearch?.Cancel(); _modPlan?.Cancel();
+        _modSearch?.Cancel();
+        _modPlan?.Cancel();
         _gameMonitor?.Stop();
         _operation?.Cancel();
         base.OnClosed(e);
@@ -377,7 +429,8 @@ public partial class MainWindow : Window
 
     private void Mods_Click(object sender, RoutedEventArgs e)
     {
-        if (_config is null) return;
+        if (_config is null)
+            return;
         var mods = Path.Combine(_config.MinecraftDirectory, "mods");
         Directory.CreateDirectory(mods);
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{mods}\"") { UseShellExecute = true });
@@ -398,28 +451,35 @@ public partial class MainWindow : Window
             ClientManifestInput.Text = _config.ClientManifestUrl;
             LauncherManifestInput.Text = _config.LauncherManifestUrl;
         }
+
         SettingsOverlay.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void BrowseDirectory_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFolderDialog { Title = "Select Minecraft game directory", FolderName = GameDirectoryInput.Text };
-        if (dialog.ShowDialog(this) == true) GameDirectoryInput.Text = dialog.FolderName;
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Select Minecraft game directory",
+            FolderName = GameDirectoryInput.Text
+        };
+        if (dialog.ShowDialog(this) == true)
+            GameDirectoryInput.Text = dialog.FolderName;
     }
 
     private async void SaveSettings_Click(object sender, RoutedEventArgs e)
     {
-        if (_config is null) return;
+        if (_config is null)
+            return;
         try
         {
             var resolution = ((string?)ResolutionInput.SelectedValue ?? "1920x1080").Split('x', 'X');
             if (resolution.Length != 2 || !int.TryParse(resolution[0], out var width) || !int.TryParse(resolution[1], out var height))
                 throw new FormatException("Enter the resolution as width x height.");
             var memory = (int)Math.Round(MemoryInput.Value);
-            if (string.IsNullOrWhiteSpace(GameDirectoryInput.Text)) throw new FormatException("Choose a Minecraft directory.");
+            if (string.IsNullOrWhiteSpace(GameDirectoryInput.Text))
+                throw new FormatException("Choose a Minecraft directory.");
             UpdateService.ValidateManifestUrl(ClientManifestInput.Text.Trim());
             UpdateService.ValidateManifestUrl(LauncherManifestInput.Text.Trim());
-
             _config.MinecraftDirectory = Path.GetFullPath(GameDirectoryInput.Text);
             _config.MaximumMemoryGb = memory;
             _config.ScreenWidth = width;
@@ -444,37 +504,33 @@ public partial class MainWindow : Window
     private void ScheduleLauncherUpdate(string stagedPath)
     {
         var executable = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(executable)) throw new InvalidOperationException("Could not determine the launcher executable path.");
+        if (string.IsNullOrWhiteSpace(executable))
+            throw new InvalidOperationException("Could not determine the launcher executable path.");
         LauncherUpdateHandoff.Start(stagedPath, executable);
         Close();
     }
 
-    private static string CurrentLauncherVersion =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
-
-    private static bool IsSmokeTestRun =>
-        Environment.GetCommandLineArgs().Any(a => a.Equals("--smoke-test", StringComparison.OrdinalIgnoreCase) || a.Equals("--smoke-startup", StringComparison.OrdinalIgnoreCase));
+    private static string CurrentLauncherVersion => Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+    private static bool IsSmokeTestRun => Environment.GetCommandLineArgs().Any(a => a.Equals("--smoke-test", StringComparison.OrdinalIgnoreCase) || a.Equals("--smoke-startup", StringComparison.OrdinalIgnoreCase));
 
     private static string? GetSmokeLaunchProfile()
     {
         const string prefix = "--smoke-launch=";
-        var value = Environment.GetCommandLineArgs()
-            .FirstOrDefault(argument => argument.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))?[prefix.Length..]
-            .ToLowerInvariant();
+        var value = Environment.GetCommandLineArgs().FirstOrDefault(argument => argument.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))?[prefix.Length..].ToLowerInvariant();
         return value is "standalone" or "fabric" ? value : null;
     }
 
     private async Task RunOfflineLaunchSmokeAsync(bool fabric)
     {
-        if (_config is null || _java is null) throw new InvalidOperationException("Launcher setup did not finish.");
+        if (_config is null || _java is null)
+            throw new InvalidOperationException("Launcher setup did not finish.");
         var profileName = fabric ? "fabric" : "standalone";
         var gameDirectory = fabric ? _config.MinecraftDirectory : _config.StandaloneGameDirectory;
         Process? game = null;
         try
         {
             var session = MSession.CreateOfflineSession("PlutoniumSmoke");
-            game = await _game.PrepareAndLaunchAsync(_config, _java, session, fabric,
-                new Progress<string>(SetInstallProgress), new Progress<double>(value => Progress.Value = value * 100));
+            game = await _game.PrepareAndLaunchAsync(_config, _java, session, fabric, new Progress<string>(SetInstallProgress), new Progress<double>(value => Progress.Value = value * 100));
             _gameProcess = game;
             MonitorGameProcess(game);
             var logPath = Path.Combine(gameDirectory, "logs", "latest.log");
@@ -489,6 +545,7 @@ public partial class MainWindow : Window
                     break;
                 }
             }
+
             var exitCode = game.HasExited ? game.ExitCode : (int?)null;
             if (!game.HasExited)
             {
@@ -496,16 +553,17 @@ public partial class MainWindow : Window
                 game.Kill(entireProcessTree: true);
                 await game.WaitForExitAsync();
             }
+
             await Task.Delay(200);
             if (!started)
             {
                 var log = File.Exists(logPath) ? await File.ReadAllTextAsync(logPath) : "Minecraft did not create a log.";
                 throw new InvalidOperationException($"{profileName} launch did not reach the game startup marker. Exit code: {exitCode?.ToString() ?? "running"}. {log[^Math.Min(log.Length, 2500)..]}");
             }
+
             if (_gameProcess is not null || PlayButton.Content?.ToString() != "PLAY")
                 throw new InvalidOperationException("Launcher did not clear its Playing state after Minecraft exited.");
-            await File.WriteAllTextAsync(Path.Combine(_config.DataDirectory, "launch-smoke-" + profileName + ".txt"),
-                $"PASS\nProfile={profileName}\nMinecraft={gameDirectory}\nJava={_java.DisplayVersion}\n");
+            await File.WriteAllTextAsync(Path.Combine(_config.DataDirectory, "launch-smoke-" + profileName + ".txt"), $"PASS\nProfile={profileName}\nMinecraft={gameDirectory}\nJava={_java.DisplayVersion}\n");
         }
         catch (Exception ex)
         {
@@ -514,6 +572,7 @@ public partial class MainWindow : Window
                 game.Kill(entireProcessTree: true);
                 await game.WaitForExitAsync();
             }
+
             await File.WriteAllTextAsync(Path.Combine(_config.DataDirectory, "launch-smoke-" + profileName + ".txt"), "FAIL\n" + ex);
         }
     }

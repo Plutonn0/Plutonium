@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $id = 'plutonium-1.21.11'
 $jar = Join-Path $root "build/client/$id.jar"
-$fabricMod = Join-Path $root 'fabric/build/libs/plutonium-client-fabric-2.0.61.jar'
+$fabricMod = Join-Path $root 'fabric/build/libs/plutonium-client-fabric-2.0.62.jar'
 if (-not (Test-Path -LiteralPath $jar)) { throw 'Build Plutonium first with BUILD.cmd.' }
 if (-not (Test-Path -LiteralPath $fabricMod)) { throw 'Build the Fabric-compatible Plutonium mod first with BUILD.cmd.' }
 $target = Join-Path $MinecraftDirectory "versions/$id"
@@ -29,40 +29,43 @@ $modsDirectory = Join-Path $MinecraftDirectory 'mods'
 New-Item -ItemType Directory -Force -Path $modsDirectory | Out-Null
 Copy-Item -LiteralPath $fabricMod -Destination (Join-Path $modsDirectory 'quirk-client-fabric.jar')
 $profilePath = Join-Path $MinecraftDirectory 'launcher_profiles.json'
-if (Get-Process -Name Minecraft,MinecraftLauncher -ErrorAction SilentlyContinue) {
+if (Get-Process -Name Minecraft, MinecraftLauncher -ErrorAction SilentlyContinue) {
     Write-Host 'Close Minecraft Launcher and any running Minecraft game to finish creating the Plutonium installation...'
-    do { Start-Sleep -Seconds 2 } while (Get-Process -Name Minecraft,MinecraftLauncher -ErrorAction SilentlyContinue)
+    do { Start-Sleep -Seconds 2 } while (Get-Process -Name Minecraft, MinecraftLauncher -ErrorAction SilentlyContinue)
 }
 if (Test-Path -LiteralPath $profilePath) {
     $profiles = Get-Content -Raw -LiteralPath $profilePath | ConvertFrom-Json
     Copy-Item -LiteralPath $profilePath -Destination "$profilePath.quirk-backup-$(Get-Date -Format yyyyMMdd-HHmmss-fff)"
-} else { $profiles = [pscustomobject]@{ profiles = [pscustomobject]@{}; version = 3 } }
+}
+else { $profiles = [pscustomobject]@{ profiles = [pscustomobject]@{}; version = 3 } }
 $gameDirectory = Join-Path $MinecraftDirectory 'quirk-client'
 New-Item -ItemType Directory -Force -Path $gameDirectory | Out-Null
 $profile = [pscustomobject]@{
-    name = 'Plutonium | 1.21.11'
-    type = 'custom'
+    name          = 'Plutonium | 1.21.11'
+    type          = 'custom'
     lastVersionId = $id
-    gameDir = $gameDirectory
-    icon = 'Amethyst_Shard'
-    javaArgs = '-Xmx4G -XX:+UseG1GC'
-    created = [DateTime]::UtcNow.ToString('o')
+    gameDir       = $gameDirectory
+    icon          = 'Amethyst_Shard'
+    javaArgs      = '-Xmx4G -XX:+UseG1GC'
+    created       = [DateTime]::UtcNow.ToString('o')
 }
 if ($profiles.profiles.PSObject.Properties['quirk-client']) {
     $profiles.profiles.'quirk-client' = $profile
-} else { $profiles.profiles | Add-Member -NotePropertyName 'quirk-client' -NotePropertyValue $profile }
+}
+else { $profiles.profiles | Add-Member -NotePropertyName 'quirk-client' -NotePropertyValue $profile }
 $fabricProfile = [pscustomobject]@{
-    name = 'Plutonium + Fabric | 1.21.11'
-    type = 'custom'
+    name          = 'Plutonium + Fabric | 1.21.11'
+    type          = 'custom'
     lastVersionId = $fabricVersion
-    gameDir = $MinecraftDirectory
-    icon = 'Amethyst_Shard'
-    javaArgs = '-Xmx4G -XX:+UseG1GC'
-    created = [DateTime]::UtcNow.ToString('o')
+    gameDir       = $MinecraftDirectory
+    icon          = 'Amethyst_Shard'
+    javaArgs      = '-Xmx4G -XX:+UseG1GC'
+    created       = [DateTime]::UtcNow.ToString('o')
 }
 if ($profiles.profiles.PSObject.Properties['quirk-fabric']) {
     $profiles.profiles.'quirk-fabric' = $fabricProfile
-} else { $profiles.profiles | Add-Member -NotePropertyName 'quirk-fabric' -NotePropertyValue $fabricProfile }
+}
+else { $profiles.profiles | Add-Member -NotePropertyName 'quirk-fabric' -NotePropertyValue $fabricProfile }
 $temporary = "$profilePath.quirk-tmp"
 [IO.File]::WriteAllText($temporary, ($profiles | ConvertTo-Json -Depth 100), $utf8NoBom)
 Move-Item -LiteralPath $temporary -Destination $profilePath -Force

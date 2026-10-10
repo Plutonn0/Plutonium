@@ -1,5 +1,7 @@
 using System.Windows;
+
 namespace PlutoniumLauncher;
+
 public partial class SplashWindow : Window
 {
     public SplashWindow() => InitializeComponent();

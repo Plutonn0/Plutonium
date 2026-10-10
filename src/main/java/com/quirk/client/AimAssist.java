@@ -20,7 +20,7 @@ final class AimAssist {
 
     static float adaptiveStep(float maxStep, double angularError, double maxAngle) {
         double urgency = Math.clamp(angularError / maxAngle, 0, 1);
-        return (float)(maxStep * (0.35 + 0.65 * urgency));
+        return (float) (maxStep * (0.35 + 0.65 * urgency));
     }
 
     static Vec3 predictedOffset(Vec3 velocity, double ticks) {

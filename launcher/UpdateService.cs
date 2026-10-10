@@ -9,15 +9,22 @@ public sealed record UpdateAsset(string Url, string Sha256);
 public sealed record ClientUpdateManifest(string Version, UpdateAsset Standalone, UpdateAsset Fabric);
 public sealed record LauncherUpdateManifest(string Version, UpdateAsset Executable);
 public sealed record UpdateCheckResult(bool Configured, bool Available, string? Version, string Status);
-
 public sealed class UpdateService(HttpClient? httpClient = null)
 {
-    public DownloadManager? Downloads { get; set; }
-    private readonly HttpClient _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    public DownloadManager? Downloads
+    {
+        get; set;
+    }
 
-    public async Task<(UpdateCheckResult Result, ClientUpdateManifest? Manifest)> CheckClientAsync(
-        string manifestUrl, string currentVersion, CancellationToken cancellationToken = default)
+    private readonly HttpClient _httpClient = httpClient ?? new HttpClient
+    {
+        Timeout = TimeSpan.FromMinutes(10)
+    };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+    public async Task<(UpdateCheckResult Result, ClientUpdateManifest? Manifest)> CheckClientAsync(string manifestUrl, string currentVersion, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(manifestUrl))
             return (new(false, false, null, "Client update source not configured"), null);
@@ -28,8 +35,7 @@ public sealed class UpdateService(HttpClient? httpClient = null)
         return (new(true, available, manifest.Version, available ? $"Client update {manifest.Version} available" : "Client is up to date"), manifest);
     }
 
-    public async Task<(UpdateCheckResult Result, LauncherUpdateManifest? Manifest)> CheckLauncherAsync(
-        string manifestUrl, string currentVersion, CancellationToken cancellationToken = default)
+    public async Task<(UpdateCheckResult Result, LauncherUpdateManifest? Manifest)> CheckLauncherAsync(string manifestUrl, string currentVersion, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(manifestUrl))
             return (new(false, false, null, "Launcher update source not configured"), null);
@@ -39,19 +45,15 @@ public sealed class UpdateService(HttpClient? httpClient = null)
         return (new(true, available, manifest.Version, available ? $"Launcher update {manifest.Version} available" : "Launcher is up to date"), manifest);
     }
 
-    public async Task DownloadVerifiedAsync(
-        UpdateAsset asset,
-        string targetPath,
-        IProgress<double>? progress = null,
-        CancellationToken cancellationToken = default)
+    public async Task DownloadVerifiedAsync(UpdateAsset asset, string targetPath, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
     {
         ValidateAsset(asset);
         if (Downloads is not null)
         {
-            await Downloads.DownloadAsync(Path.GetFileName(targetPath), asset.Url, targetPath, asset.Sha256,
-                HashAlgorithmName.SHA256, cancellationToken, progress);
+            await Downloads.DownloadAsync(Path.GetFileName(targetPath), asset.Url, targetPath, asset.Sha256, HashAlgorithmName.SHA256, cancellationToken, progress);
             return;
         }
+
         var uri = new Uri(asset.Url, UriKind.Absolute);
         var directory = Path.GetDirectoryName(targetPath)!;
         Directory.CreateDirectory(directory);
@@ -65,20 +67,23 @@ public sealed class UpdateService(HttpClient? httpClient = null)
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             var buffer = new byte[128 * 1024];
             long received = 0;
-            await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                             128 * 1024, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous | FileOptions.WriteThrough))
             {
                 while (true)
                 {
                     var count = await input.ReadAsync(buffer, cancellationToken);
-                    if (count == 0) break;
+                    if (count == 0)
+                        break;
                     await output.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
                     hash.AppendData(buffer, 0, count);
                     received += count;
-                    if (expectedBytes is > 0) progress?.Report(Math.Clamp(received / (double)expectedBytes.Value, 0, 1));
+                    if (expectedBytes is > 0)
+                        progress?.Report(Math.Clamp(received / (double)expectedBytes.Value, 0, 1));
                 }
+
                 await output.FlushAsync(cancellationToken);
             }
+
             if (expectedBytes is > 0 && received != expectedBytes.Value)
                 throw new IOException("The downloaded update ended before completion.");
             var actual = Convert.ToHexString(hash.GetHashAndReset());
@@ -89,13 +94,14 @@ public sealed class UpdateService(HttpClient? httpClient = null)
         }
         finally
         {
-            if (File.Exists(temporary)) File.Delete(temporary);
+            TemporaryCleanup.DeleteFile(temporary);
         }
     }
-    
+
     public static async Task<bool> FileMatchesSha256Async(string path, string expectedSha256, CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(path) || expectedSha256.Length != 64 || !expectedSha256.All(Uri.IsHexDigit)) return false;
+        if (!File.Exists(path) || expectedSha256.Length != 64 || !expectedSha256.All(Uri.IsHexDigit))
+            return false;
         await using var stream = File.OpenRead(path);
         var actual = await SHA256.HashDataAsync(stream, cancellationToken);
         return CryptographicOperations.FixedTimeEquals(actual, Convert.FromHexString(expectedSha256));
@@ -107,8 +113,7 @@ public sealed class UpdateService(HttpClient? httpClient = null)
         using var response = await _httpClient.GetAsync(uri, cancellationToken);
         response.EnsureSuccessStatusCode();
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken)
-            ?? throw new InvalidDataException("The update manifest was empty or invalid.");
+        return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken) ?? throw new InvalidDataException("The update manifest was empty or invalid.");
     }
 
     private static Uri RequireHttps(string value)
@@ -120,7 +125,8 @@ public sealed class UpdateService(HttpClient? httpClient = null)
 
     public static void ValidateManifestUrl(string value)
     {
-        if (!string.IsNullOrWhiteSpace(value)) _ = RequireHttps(value);
+        if (!string.IsNullOrWhiteSpace(value))
+            _ = RequireHttps(value);
     }
 
     private static void ValidateAsset(UpdateAsset asset)

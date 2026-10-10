@@ -4,7 +4,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class XrayFilterTest {
-    @Test void preservesOresAndValuableBlocks() {
+    @Test
+    void preservesOresAndValuableBlocks() {
         assertTrue(XrayFilter.isValuable("diamond_ore"));
         assertTrue(XrayFilter.isValuable("deepslate_emerald_ore"));
         assertTrue(XrayFilter.isValuable("ancient_debris"));
@@ -13,7 +14,8 @@ class XrayFilterTest {
         assertTrue(XrayFilter.isValuable("ender_chest"));
     }
 
-    @Test void hidesOrdinaryTerrainAndDecorativeBlocks() {
+    @Test
+    void hidesOrdinaryTerrainAndDecorativeBlocks() {
         assertFalse(XrayFilter.isValuable("stone"));
         assertFalse(XrayFilter.isValuable("dirt"));
         assertFalse(XrayFilter.isValuable("oak_planks"));

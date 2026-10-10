@@ -10,7 +10,8 @@ internal sealed class DpapiJsonFileStorage(string filePath) : IJsonStorage
 {
     public JsonNode? ReadAsJsonNode()
     {
-        if (!File.Exists(filePath)) return null;
+        if (!File.Exists(filePath))
+            return null;
         var encrypted = File.ReadAllBytes(filePath);
         var json = ProtectedData.Unprotect(encrypted, optionalEntropy: null, DataProtectionScope.CurrentUser);
         return JsonNode.Parse(json);
@@ -26,17 +27,17 @@ internal sealed class DpapiJsonFileStorage(string filePath) : IJsonStorage
         var temporary = filePath + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
-            using (var file = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                       4096, FileOptions.WriteThrough))
+            using (var file = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
             {
                 file.Write(encrypted);
                 file.Flush(flushToDisk: true);
             }
+
             AtomicFile.Replace(temporary, filePath);
         }
         finally
         {
-            if (File.Exists(temporary)) File.Delete(temporary);
+            TemporaryCleanup.DeleteFile(temporary);
         }
     }
 }

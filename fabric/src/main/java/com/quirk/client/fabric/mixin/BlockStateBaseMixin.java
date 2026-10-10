@@ -12,15 +12,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(BlockBehaviour.BlockStateBase.class)
 abstract class BlockStateBaseMixin {
-    @Inject(method="isSolidRender",at=@At("HEAD"),cancellable=true)
-    private void quirk$solid(CallbackInfoReturnable<Boolean> cir){if(Quirk.xray())cir.setReturnValue(false);}
+    @Inject(method = "isSolidRender", at = @At("HEAD"), cancellable = true)
+    private void quirk$solid(CallbackInfoReturnable<Boolean> cir) {
+        if (Quirk.xray()) cir.setReturnValue(false);
+    }
+
     @Inject(method = "getRenderShape", at = @At("RETURN"), cancellable = true)
     private void quirk$filterRenderShape(CallbackInfoReturnable<RenderShape> cir) {
-        cir.setReturnValue(Quirk.renderShape((BlockBehaviour.BlockStateBase) (Object) this, cir.getReturnValue()));
+        cir.setReturnValue(
+                Quirk.renderShape(
+                        (BlockBehaviour.BlockStateBase) (Object) this, cir.getReturnValue()));
     }
 
     @Inject(method = "getFaceOcclusionShape", at = @At("RETURN"), cancellable = true)
-    private void quirk$disableFaceOcclusion(Direction direction, CallbackInfoReturnable<VoxelShape> cir) {
+    private void quirk$disableFaceOcclusion(
+            Direction direction, CallbackInfoReturnable<VoxelShape> cir) {
         cir.setReturnValue(Quirk.faceOcclusionShape(cir.getReturnValue()));
     }
 }

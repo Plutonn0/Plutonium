@@ -14,7 +14,8 @@ function Fetch-Verified($url, $path, $sha, $cached) {
     if ((Test-Path -LiteralPath $path) -and ((Hash-Sha1 $path) -eq $sha)) { return }
     if ($cached -and (Test-Path -LiteralPath $cached) -and ((Hash-Sha1 $cached) -eq $sha)) {
         Copy-Item -LiteralPath $cached -Destination $path
-    } else { Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $path }
+    }
+    else { Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $path }
     if ((Hash-Sha1 $path) -ne $sha) { throw "Download checksum mismatch: $path" }
 }
 $manifest = Invoke-RestMethod 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'

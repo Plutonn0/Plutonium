@@ -13,9 +13,8 @@ final class FreecamMovement {
         strafe /= length;
         double horizontalForward = Math.cos(pitch) * forward;
         return new Vec3(
-            -Math.sin(yaw) * horizontalForward - Math.cos(yaw) * strafe,
-            -Math.sin(pitch) * forward,
-            Math.cos(yaw) * horizontalForward - Math.sin(yaw) * strafe
-        );
+                -Math.sin(yaw) * horizontalForward - Math.cos(yaw) * strafe,
+                -Math.sin(pitch) * forward,
+                Math.cos(yaw) * horizontalForward - Math.sin(yaw) * strafe);
     }
 }

@@ -15,45 +15,69 @@ public sealed class MinecraftLaunchService
 {
     private readonly System.Collections.Concurrent.ConcurrentQueue<string> _recentOutput = new();
     public string RecentOutput => string.Join(Environment.NewLine, _recentOutput);
+
     private void Capture(string? line)
     {
-        if (string.IsNullOrWhiteSpace(line)) return;
+        if (string.IsNullOrWhiteSpace(line))
+            return;
         _recentOutput.Enqueue(ErrorReport.Redact(line));
-        while (_recentOutput.Count > 40) _recentOutput.TryDequeue(out _);
+        while (_recentOutput.Count > 40)
+            _recentOutput.TryDequeue(out _);
     }
+
     private const string GameVersion = "1.21.11";
     private const string StandaloneVersion = "plutonium-1.21.11";
-    private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromMinutes(10) };
-    public DownloadManager? Downloads { get; set; }
-    public async Task<Process> PrepareAndLaunchAsync(
-        LauncherConfig config, JavaRuntime java, MSession session, bool fabric,
-        IProgress<string>? progress = null, IProgress<double>? byteProgress = null,
-        CancellationToken cancellationToken = default, string? serverAddress = null)
+    private readonly HttpClient _httpClient = new()
     {
-        var item = new DownloadItem("Minecraft 1.21.11 · assets, libraries and loader") { CanPause = false };
+        Timeout = TimeSpan.FromMinutes(10)
+    };
+    public DownloadManager? Downloads
+    {
+        get; set;
+    }
+
+    public async Task<Process> PrepareAndLaunchAsync(LauncherConfig config, JavaRuntime java, MSession session, bool fabric, IProgress<string>? progress = null, IProgress<double>? byteProgress = null, CancellationToken cancellationToken = default, string? serverAddress = null)
+    {
+        var item = new DownloadItem("Minecraft 1.21.11 · assets, libraries and loader")
+        {
+            CanPause = false
+        };
         Downloads?.Items.Insert(0, item);
         var finished = false;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, item.Cancellation.Token);
         try
         {
-            var process = await PrepareCoreAsync(config, java, session, fabric,
-                new Progress<string>(value => { progress?.Report(value); if (!finished) item.Update("Downloading", value, item.Percent); }),
-                new Progress<double>(value => { byteProgress?.Report(value); if (!finished) item.Update("Downloading", item.Detail, value * 100); }), linked.Token, serverAddress);
-            item.Update("Complete", "Minecraft files checked and game started", 100); return process;
+            var process = await PrepareCoreAsync(config, java, session, fabric, new Progress<string>(value =>
+            {
+                progress?.Report(value);
+                if (!finished)
+                    item.Update("Downloading", value, item.Percent);
+            }), new Progress<double>(value =>
+            {
+                byteProgress?.Report(value);
+                if (!finished)
+                    item.Update("Downloading", item.Detail, value * 100);
+            }), linked.Token, serverAddress);
+            item.Update("Complete", "Minecraft files checked and game started", 100);
+            return process;
         }
-        catch (OperationCanceledException) { item.Update("Cancelled", "Preparation cancelled. Play will resume missing files.", item.Percent); throw; }
-        catch (Exception ex) { item.Update("Failed", ErrorReport.Redact(ex.Message), item.Percent); throw; }
-        finally { finished = true; }
+        catch (OperationCanceledException)
+        {
+            item.Update("Cancelled", "Preparation cancelled. Play will resume missing files.", item.Percent);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            item.Update("Failed", ErrorReport.Redact(ex.Message), item.Percent);
+            throw;
+        }
+        finally
+        {
+            finished = true;
+        }
     }
-    private async Task<Process> PrepareCoreAsync(
-        LauncherConfig config,
-        JavaRuntime java,
-        MSession session,
-        bool fabric,
-        IProgress<string>? progress = null,
-        IProgress<double>? byteProgress = null,
-        CancellationToken cancellationToken = default,
-        string? serverAddress = null)
+
+    private async Task<Process> PrepareCoreAsync(LauncherConfig config, JavaRuntime java, MSession session, bool fabric, IProgress<string>? progress = null, IProgress<double>? byteProgress = null, CancellationToken cancellationToken = default, string? serverAddress = null)
     {
         var gameDirectory = fabric ? config.MinecraftDirectory : config.StandaloneGameDirectory;
         var path = new MinecraftPath(gameDirectory);
@@ -61,9 +85,9 @@ public sealed class MinecraftLaunchService
         launcher.FileProgressChanged += (_, args) => progress?.Report($"{args.EventType}: {args.Name}");
         launcher.ByteProgressChanged += (_, args) =>
         {
-            if (args.TotalBytes > 0) byteProgress?.Report(Math.Clamp(args.ProgressedBytes / (double)args.TotalBytes, 0, 1));
+            if (args.TotalBytes > 0)
+                byteProgress?.Report(Math.Clamp(args.ProgressedBytes / (double)args.TotalBytes, 0, 1));
         };
-
         progress?.Report("Checking Minecraft 1.21.11 files");
         await launcher.InstallAsync(GameVersion, cancellationToken);
         var version = StandaloneVersion;
@@ -91,9 +115,14 @@ public sealed class MinecraftLaunchService
         {
             var address = ServerFavorite.Create("Server", serverAddress).Address;
             if (process.StartInfo.ArgumentList.Count > 0)
-            { process.StartInfo.ArgumentList.Add("--quickPlayMultiplayer"); process.StartInfo.ArgumentList.Add(address); }
-            else process.StartInfo.Arguments += " --quickPlayMultiplayer \"" + address + "\"";
+            {
+                process.StartInfo.ArgumentList.Add("--quickPlayMultiplayer");
+                process.StartInfo.ArgumentList.Add(address);
+            }
+            else
+                process.StartInfo.Arguments += " --quickPlayMultiplayer \"" + address + "\"";
         }
+
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report("Launching Minecraft");
         _recentOutput.Clear();
@@ -103,7 +132,8 @@ public sealed class MinecraftLaunchService
         process.StartInfo.RedirectStandardError = true;
         process.OutputDataReceived += (_, e) => Capture(e.Data);
         process.ErrorDataReceived += (_, e) => Capture(e.Data);
-        if (!process.Start()) throw new InvalidOperationException("Windows could not start the Minecraft process.");
+        if (!process.Start())
+            throw new InvalidOperationException("Windows could not start the Minecraft process.");
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         return process;

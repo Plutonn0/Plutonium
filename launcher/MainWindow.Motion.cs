@@ -6,14 +6,22 @@ namespace PlutoniumLauncher;
 
 public partial class MainWindow
 {
-    private readonly DispatcherTimer _activityTimer = new() { Interval = TimeSpan.FromMilliseconds(160) };
+    private readonly DispatcherTimer _activityTimer = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(160)
+    };
     private DownloadItem? _displayedDownload;
     private void InitializeActivity()
     {
         _activityTimer.Tick += (_, _) => RefreshActivity();
-        Loaded += (_, _) => { _activityTimer.Start(); RefreshActivity(); };
+        Loaded += (_, _) =>
+        {
+            _activityTimer.Start();
+            RefreshActivity();
+        };
         Closed += (_, _) => _activityTimer.Stop();
     }
+
     private void RefreshActivity()
     {
         var active = _downloads.Items.FirstOrDefault(i => i.Active);
@@ -29,6 +37,7 @@ public partial class MainWindow
             DownloadProgress.Value = 0;
             return;
         }
+
         DownloadTitle.Text = item.Name;
         DownloadDetail.Text = item.Status + " · " + item.Detail;
         TransferText.Text = _busy && active is null ? ActivityText.Text : item.Status + " · " + item.Name + (active is not null && item.Percent > 0 ? $" · {item.Percent:0}%" : "");
@@ -39,9 +48,9 @@ public partial class MainWindow
             DownloadProgress.BeginAnimation(System.Windows.Controls.Primitives.RangeBase.ValueProperty, null);
             DownloadProgress.Value = value;
             if (ReferenceEquals(item, _displayedDownload) && SystemParameters.ClientAreaAnimation)
-                DownloadProgress.BeginAnimation(System.Windows.Controls.Primitives.RangeBase.ValueProperty,
-                    new DoubleAnimation(previous, value, TimeSpan.FromMilliseconds(150)) { FillBehavior = FillBehavior.Stop });
+                DownloadProgress.BeginAnimation(System.Windows.Controls.Primitives.RangeBase.ValueProperty, new DoubleAnimation(previous, value, TimeSpan.FromMilliseconds(150)) { FillBehavior = FillBehavior.Stop });
         }
+
         _displayedDownload = item;
     }
 }

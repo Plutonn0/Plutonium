@@ -48,10 +48,28 @@ public static class LauncherUpdateHandoff
     public static void Start(string staged, string executable)
     {
         var script = WriteScript(Path.GetDirectoryName(staged)!);
-        var start = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true };
-        foreach (var argument in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script,
-                     "-Staged", Path.GetFullPath(staged), "-Target", Path.GetFullPath(executable),
-                     "-LauncherPid", Environment.ProcessId.ToString() }) start.ArgumentList.Add(argument);
+        var start = new ProcessStartInfo("powershell.exe")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        foreach (var argument in new[]
+        {
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            script,
+            "-Staged",
+            Path.GetFullPath(staged),
+            "-Target",
+            Path.GetFullPath(executable),
+            "-LauncherPid",
+            Environment.ProcessId.ToString()
+        }
+
+        )
+            start.ArgumentList.Add(argument);
         _ = Process.Start(start) ?? throw new IOException("The launcher update helper could not start.");
     }
 }

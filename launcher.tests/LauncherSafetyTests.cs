@@ -11,7 +11,6 @@ namespace PlutoniumLauncher.Tests;
 public sealed class LauncherSafetyTests : IDisposable
 {
     private readonly string _temporaryRoot = Path.Combine(Path.GetTempPath(), "PlutoniumLauncherTests", Guid.NewGuid().ToString("N"));
-
     [Fact]
     public async Task FreshInstallAddsOnlyPlutoniumFilesAndKeepsMinecraftProfilesUntouched()
     {
@@ -21,9 +20,7 @@ public sealed class LauncherSafetyTests : IDisposable
         const string profileContents = "{\"profiles\":{\"other\":{\"name\":\"Existing\"}}}";
         await File.WriteAllTextAsync(profilePath, profileContents);
         var config = CreateConfig(minecraft, minecraft);
-
         var result = await new BootstrapService().InstallOrRepairAsync(config);
-
         Assert.True(result.HasStandaloneFiles);
         Assert.True(result.HasFabricFiles);
         Assert.Equal(profileContents, await File.ReadAllTextAsync(profilePath));
@@ -52,15 +49,22 @@ public sealed class LauncherSafetyTests : IDisposable
         {
             profiles = new
             {
-                quirk = new { name = "Quirk Client", lastVersionId = "plutonium-1.21.11", gameDir = legacyGame },
-                other = new { name = "Unrelated profile", lastVersionId = "1.21.11" }
+                quirk = new
+                {
+                    name = "Quirk Client",
+                    lastVersionId = "plutonium-1.21.11",
+                    gameDir = legacyGame
+                },
+                other = new
+                {
+                    name = "Unrelated profile",
+                    lastVersionId = "1.21.11"
+                }
             }
         });
         await File.WriteAllTextAsync(profilePath, profileJson);
         var config = CreateConfig(minecraft, minecraft);
-
         var result = await new BootstrapService().InstallOrRepairAsync(config);
-
         Assert.True(result.HasLegacyQuirkSettings);
         Assert.Equal(Path.GetFullPath(legacyGame), result.StandaloneGameDirectory);
         Assert.Equal(settings, await File.ReadAllTextAsync(Path.Combine(legacyGame, "quirk", "settings.json")));
@@ -80,13 +84,10 @@ public sealed class LauncherSafetyTests : IDisposable
         await installer.InstallOrRepairAsync(config);
         var target = Path.Combine(minecraft, "versions", "plutonium-1.21.11", "plutonium-1.21.11.jar");
         await File.WriteAllTextAsync(target, "corrupted payload");
-
         await installer.InstallOrRepairAsync(config);
-
         await using var installedFile = File.OpenRead(target);
         var installedHash = await SHA256.HashDataAsync(installedFile);
-        await using var embedded = typeof(BootstrapService).Assembly
-            .GetManifestResourceStream("PlutoniumLauncher.Payload.standalone.jar")!;
+        await using var embedded = typeof(BootstrapService).Assembly.GetManifestResourceStream("PlutoniumLauncher.Payload.standalone.jar")!;
         var bundledHash = await SHA256.HashDataAsync(embedded);
         Assert.Equal(Convert.ToHexString(bundledHash), Convert.ToHexString(installedHash));
     }
@@ -106,16 +107,10 @@ public sealed class LauncherSafetyTests : IDisposable
         const string existing = "known good client";
         const string download = "untrusted replacement";
         await File.WriteAllTextAsync(target, existing);
-        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(download)
-        });
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(download) });
         var updates = new UpdateService(new HttpClient(handler));
         var wrongHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("different content")));
-
-        await Assert.ThrowsAsync<InvalidDataException>(() => updates.DownloadVerifiedAsync(
-            new UpdateAsset("https://updates.example/client.jar", wrongHash), target));
-
+        await Assert.ThrowsAsync<InvalidDataException>(() => updates.DownloadVerifiedAsync(new UpdateAsset("https://updates.example/client.jar", wrongHash), target));
         Assert.Equal(existing, await File.ReadAllTextAsync(target));
         Assert.Single(Directory.GetFiles(_temporaryRoot));
     }
@@ -128,13 +123,8 @@ public sealed class LauncherSafetyTests : IDisposable
         const string replacement = "verified replacement";
         await File.WriteAllTextAsync(target, "old client");
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(replacement)));
-        var updates = new UpdateService(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(replacement)
-        })));
-
+        var updates = new UpdateService(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(replacement) })));
         await updates.DownloadVerifiedAsync(new UpdateAsset("https://updates.example/client.jar", hash), target);
-
         Assert.Equal(replacement, await File.ReadAllTextAsync(target));
         Assert.Single(Directory.GetFiles(_temporaryRoot));
     }
@@ -150,13 +140,8 @@ public sealed class LauncherSafetyTests : IDisposable
           "fabric": { "url": "https://updates.example/fabric.jar", "sha256": "{{hash}}" }
         }
         """;
-        var updates = new UpdateService(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(manifest)
-        })));
-
+        var updates = new UpdateService(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(manifest) })));
         var (result, _) = await updates.CheckClientAsync("https://updates.example/client.json", "1.0.0");
-
         Assert.True(result.Configured);
         Assert.True(result.Available);
         await Assert.ThrowsAsync<InvalidDataException>(() => updates.CheckClientAsync("http://updates.example/client.json", "1.0.0"));
@@ -168,15 +153,14 @@ public sealed class LauncherSafetyTests : IDisposable
         MinecraftDirectory = minecraft,
         StandaloneGameDirectory = standalone
     };
-
     public void Dispose()
     {
-        if (Directory.Exists(_temporaryRoot)) Directory.Delete(_temporaryRoot, recursive: true);
+        if (Directory.Exists(_temporaryRoot))
+            Directory.Delete(_temporaryRoot, recursive: true);
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(respond(request));
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromResult(respond(request));
     }
 }

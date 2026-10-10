@@ -14,24 +14,20 @@ public sealed class BootstrapService
     private const string StandaloneVersion = "plutonium-1.21.11";
     private const string FabricModFile = "plutonium-client-fabric.jar";
     private readonly Assembly _assembly;
-
     public BootstrapService(Assembly? assembly = null) => _assembly = assembly ?? Assembly.GetExecutingAssembly();
-
-    public async Task<InstallationInfo> InstallOrRepairAsync(
-        LauncherConfig config,
-        IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+    public async Task<InstallationInfo> InstallOrRepairAsync(LauncherConfig config, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
         var detected = InstallationDiscovery.Detect(config);
         Directory.CreateDirectory(detected.MinecraftDirectory);
         Directory.CreateDirectory(detected.StandaloneGameDirectory);
-
         progress?.Report("Verifying standalone client files");
-        var installRoots = new[] { detected.MinecraftDirectory, detected.StandaloneGameDirectory }
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+        var installRoots = new[]
+        {
+            detected.MinecraftDirectory,
+            detected.StandaloneGameDirectory
+        }.Distinct(StringComparer.OrdinalIgnoreCase);
         var standalonePinned = await UpdateService.FileMatchesSha256Async(Path.Combine(detected.StandaloneGameDirectory, "versions", StandaloneVersion, StandaloneVersion + ".jar"), config.StandaloneRollbackHash, cancellationToken);
-        if ((!standalonePinned && !IsNewer(config.StandaloneClientVersion, "2.0.1"))
-            || !IsReadableJar(Path.Combine(detected.StandaloneGameDirectory, "versions", StandaloneVersion, StandaloneVersion + ".jar")))
+        if ((!standalonePinned && !IsNewer(config.StandaloneClientVersion, "2.0.1")) || !IsReadableJar(Path.Combine(detected.StandaloneGameDirectory, "versions", StandaloneVersion, StandaloneVersion + ".jar")))
         {
             foreach (var gameDirectory in installRoots)
             {
@@ -39,8 +35,10 @@ public sealed class BootstrapService
                 Directory.CreateDirectory(versionDirectory);
                 await InstallEmbeddedAsync(StandaloneResource, Path.Combine(versionDirectory, StandaloneVersion + ".jar"), cancellationToken);
             }
+
             config.StandaloneClientVersion = "2.0.1";
         }
+
         // Metadata can go missing independently of the jar. Repair it without downgrading a newer client.
         foreach (var gameDirectory in installRoots)
         {
@@ -67,45 +65,51 @@ public sealed class BootstrapService
         return InstallationDiscovery.Detect(config);
     }
 
-    private static bool IsNewer(string candidate, string baseline) =>
-        Version.TryParse(candidate, out var candidateVersion)
-        && Version.TryParse(baseline, out var baselineVersion)
-        && candidateVersion > baselineVersion;
-
+    private static bool IsNewer(string candidate, string baseline) => Version.TryParse(candidate, out var candidateVersion) && Version.TryParse(baseline, out var baselineVersion) && candidateVersion > baselineVersion;
     private static bool IsReadableJar(string path)
     {
-        try { using var jar = ZipFile.OpenRead(path); return jar.GetEntry("com/quirk/client/Quirk.class") is not null; }
-        catch (InvalidDataException) { return false; }
-        catch (FileNotFoundException) { return false; }
-        catch (DirectoryNotFoundException) { return false; }
+        try
+        {
+            using var jar = ZipFile.OpenRead(path);
+            return jar.GetEntry("com/quirk/client/Quirk.class") is not null;
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+        catch (FileNotFoundException)
+        {
+            return false;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return false;
+        }
     }
 
     private async Task InstallStandaloneMetadataAsync(string target, CancellationToken cancellationToken)
     {
         var source = await ReadResourceAsync(VersionResource, cancellationToken);
-        var metadata = JsonNode.Parse(source) as JsonObject
-            ?? throw new InvalidDataException("Bundled Minecraft version metadata is invalid.");
+        var metadata = JsonNode.Parse(source) as JsonObject ?? throw new InvalidDataException("Bundled Minecraft version metadata is invalid.");
         metadata["id"] = StandaloneVersion;
         metadata.AsObject().Remove("downloads");
-        var bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(metadata, new System.Text.Json.JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
-        if (await MatchesAsync(target, bytes, cancellationToken)) return;
+        var bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(metadata, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        if (await MatchesAsync(target, bytes, cancellationToken))
+            return;
         await WriteAtomicallyAsync(target, bytes, cancellationToken);
     }
 
     private async Task InstallEmbeddedAsync(string resourceName, string target, CancellationToken cancellationToken)
     {
         var bytes = await ReadResourceAsync(resourceName, cancellationToken);
-        if (await MatchesAsync(target, bytes, cancellationToken)) return;
+        if (await MatchesAsync(target, bytes, cancellationToken))
+            return;
         await WriteAtomicallyAsync(target, bytes, cancellationToken);
     }
 
     private async Task<byte[]> ReadResourceAsync(string resourceName, CancellationToken cancellationToken)
     {
-        await using var source = _assembly.GetManifestResourceStream(resourceName)
-            ?? throw new InvalidOperationException($"Required embedded payload is missing: {resourceName}");
+        await using var source = _assembly.GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException($"Required embedded payload is missing: {resourceName}");
         using var memory = new MemoryStream();
         await source.CopyToAsync(memory, cancellationToken);
         return memory.ToArray();
@@ -113,9 +117,11 @@ public sealed class BootstrapService
 
     private static async Task<bool> MatchesAsync(string target, byte[] expected, CancellationToken cancellationToken)
     {
-        if (!File.Exists(target)) return false;
+        if (!File.Exists(target))
+            return false;
         await using var stream = File.OpenRead(target);
-        if (stream.Length != expected.Length) return false;
+        if (stream.Length != expected.Length)
+            return false;
         var actualHash = await SHA256.HashDataAsync(stream, cancellationToken);
         var expectedHash = SHA256.HashData(expected);
         return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
@@ -127,17 +133,17 @@ public sealed class BootstrapService
         var temporary = target + ".pending-" + Guid.NewGuid().ToString("N");
         try
         {
-            await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                             128 * 1024, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous | FileOptions.WriteThrough))
             {
                 await stream.WriteAsync(bytes, cancellationToken);
                 await stream.FlushAsync(cancellationToken);
             }
+
             AtomicFile.Replace(temporary, target);
         }
         finally
         {
-            if (File.Exists(temporary)) File.Delete(temporary);
+            TemporaryCleanup.DeleteFile(temporary);
         }
     }
 }

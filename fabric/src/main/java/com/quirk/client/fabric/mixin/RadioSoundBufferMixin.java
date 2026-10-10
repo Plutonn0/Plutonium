@@ -13,9 +13,14 @@ import java.util.concurrent.CompletableFuture;
 
 @Mixin(SoundBufferLibrary.class)
 public abstract class RadioSoundBufferMixin {
-    @Inject(method="getStream",at=@At("HEAD"),cancellable=true)
-    private void quirk$openRadioStream(Identifier location,boolean looping,CallbackInfoReturnable<CompletableFuture<AudioStream>> cir){
-        if(location.equals(Entertainment.RADIO_STREAM_PATH))
-            cir.setReturnValue(CompletableFuture.supplyAsync(Entertainment::openRadioAudioStream,Util.nonCriticalIoPool()));
+    @Inject(method = "getStream", at = @At("HEAD"), cancellable = true)
+    private void quirk$openRadioStream(
+            Identifier location,
+            boolean looping,
+            CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
+        if (location.equals(Entertainment.RADIO_STREAM_PATH))
+            cir.setReturnValue(
+                    CompletableFuture.supplyAsync(
+                            Entertainment::openRadioAudioStream, Util.nonCriticalIoPool()));
     }
 }

@@ -15,28 +15,37 @@ public static class AppInstaller
 
     public static bool EnsureInstalled(bool betaPrompt = false)
     {
-        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUTONIUM_LAUNCHER_HOME")) || Environment.GetCommandLineArgs().Any(a => a.StartsWith("--smoke"))) return false;
+        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUTONIUM_LAUNCHER_HOME")) || Environment.GetCommandLineArgs().Any(a => a.StartsWith("--smoke")))
+            return false;
         var source = Environment.ProcessPath!;
         // Development builds run beside runtimeconfig.json; downloaded single-file builds may have any filename.
-        if (string.Equals(Path.GetFileName(source), "dotnet.exe", StringComparison.OrdinalIgnoreCase)
-            || File.Exists(Path.ChangeExtension(source, ".runtimeconfig.json"))) return false;
+        if (string.Equals(Path.GetFileName(source), "dotnet.exe", StringComparison.OrdinalIgnoreCase) || File.Exists(Path.ChangeExtension(source, ".runtimeconfig.json")))
+            return false;
         Directory.CreateDirectory(InstallDirectory);
         if (!string.Equals(Path.GetFullPath(source), InstalledExecutable, StringComparison.OrdinalIgnoreCase))
         {
-            if (File.Exists(InstalledExecutable)
-                && Version.TryParse(FileVersionInfo.GetVersionInfo(InstalledExecutable).FileVersion, out var installedVersion)
-                && installedVersion > Assembly.GetExecutingAssembly().GetName().Version)
+            if (File.Exists(InstalledExecutable) && Version.TryParse(FileVersionInfo.GetVersionInfo(InstalledExecutable).FileVersion, out var installedVersion) && installedVersion > Assembly.GetExecutingAssembly().GetName().Version)
             {
                 Process.Start(new ProcessStartInfo(InstalledExecutable, betaPrompt ? "--beta-prompt" : "") { UseShellExecute = true, WorkingDirectory = InstallDirectory });
                 return true;
             }
+
             var pending = InstalledExecutable + ".installing";
-            try { File.Copy(source, pending, true); File.Move(pending, InstalledExecutable, true); }
-            finally { if (File.Exists(pending)) File.Delete(pending); }
+            try
+            {
+                File.Copy(source, pending, true);
+                File.Move(pending, InstalledExecutable, true);
+            }
+            finally
+            {
+                TemporaryCleanup.DeleteFile(pending);
+            }
+
             Register();
             Process.Start(new ProcessStartInfo(InstalledExecutable, betaPrompt ? "--beta-prompt" : "") { UseShellExecute = true, WorkingDirectory = InstallDirectory });
             return true;
         }
+
         Register();
         return false;
     }
@@ -52,7 +61,8 @@ public static class AppInstaller
         key.SetValue("DisplayIcon", InstalledExecutable + ",0");
         key.SetValue("URLInfoAbout", "https://plutonium-lime.vercel.app/");
         key.SetValue("UninstallString", $"\"{InstalledExecutable}\" --uninstall");
-        key.SetValue("NoModify", 1); key.SetValue("NoRepair", 1);
+        key.SetValue("NoModify", 1);
+        key.SetValue("NoRepair", 1);
     }
 
     public static void CreateShortcut(string path)
@@ -60,8 +70,19 @@ public static class AppInstaller
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
         dynamic shortcut = shell.CreateShortcut(path);
-        try { shortcut.TargetPath = InstalledExecutable; shortcut.WorkingDirectory = InstallDirectory; shortcut.IconLocation = InstalledExecutable + ",0"; shortcut.Description = "Plutonium Minecraft client"; shortcut.Save(); }
-        finally { Marshal.FinalReleaseComObject(shortcut); Marshal.FinalReleaseComObject(shell); }
+        try
+        {
+            shortcut.TargetPath = InstalledExecutable;
+            shortcut.WorkingDirectory = InstallDirectory;
+            shortcut.IconLocation = InstalledExecutable + ",0";
+            shortcut.Description = "Plutonium Minecraft client";
+            shortcut.Save();
+        }
+        finally
+        {
+            Marshal.FinalReleaseComObject(shortcut);
+            Marshal.FinalReleaseComObject(shell);
+        }
     }
 
     public static void Uninstall()
@@ -83,8 +104,24 @@ public static class AppInstaller
             if(Test-Path -LiteralPath $key){Remove-Item -LiteralPath $key}
             Remove-Item -LiteralPath $PSCommandPath
             """, new UTF8Encoding(true));
-        var info = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true };
-        foreach (var arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-LauncherPid", Environment.ProcessId.ToString() }) info.ArgumentList.Add(arg);
+        var info = new ProcessStartInfo("powershell.exe")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        foreach (var arg in new[]
+        {
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            script,
+            "-LauncherPid",
+            Environment.ProcessId.ToString()
+        }
+
+        )
+            info.ArgumentList.Add(arg);
         Process.Start(info);
     }
 }

@@ -9,7 +9,9 @@ public final class FontAtlasBuilder {
         Path resources = Path.of(args[0]);
         Path definition = resources.resolve("assets/minecraft/font/quirk.json");
         Files.createDirectories(definition.getParent());
-                Files.writeString(definition, """
+        Files.writeString(
+                definition,
+                """
                         {"providers":[
                               {"type":"ttf","file":"minecraft:quirk/ui.ttf","shift":[0.0,0.0],"size":22.0,"oversample":2.0},
                             {"type":"reference","id":"minecraft:default"}

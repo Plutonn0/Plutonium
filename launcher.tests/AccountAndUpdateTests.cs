@@ -13,13 +13,15 @@ namespace PlutoniumLauncher.Tests;
 public sealed class AccountAndUpdateTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "PlutoniumTests-" + Guid.NewGuid().ToString("N"));
-
     [Fact]
     public void AccountVaultRoundTripsWithoutPlaintextCredentials()
     {
         var path = Path.Combine(_root, "accounts.bin");
         var storage = new DpapiJsonFileStorage(path);
-        var data = new JsonObject { ["test-token"] = "synthetic-secret-not-a-real-token" };
+        var data = new JsonObject
+        {
+            ["test-token"] = "synthetic-secret-not-a-real-token"
+        };
         storage.Write(data, null);
         Assert.DoesNotContain("synthetic-secret", Encoding.UTF8.GetString(File.ReadAllBytes(path)));
         Assert.Equal(data.ToJsonString(), new DpapiJsonFileStorage(path).ReadAsJsonNode()!.ToJsonString());
@@ -31,17 +33,13 @@ public sealed class AccountAndUpdateTests : IDisposable
     {
         var config = Config();
         var storage = new DpapiJsonFileStorage(Path.Combine(config.DataDirectory, "accounts.bin"));
-        var manager = new XboxAuthNet.Game.Accounts.JsonXboxGameAccountManager(storage,
-            CmlLib.Core.Auth.Microsoft.Sessions.JEGameAccount.FromSessionStorage, null);
+        var manager = new XboxAuthNet.Game.Accounts.JsonXboxGameAccountManager(storage, CmlLib.Core.Auth.Microsoft.Sessions.JEGameAccount.FromSessionStorage, null);
         var account = manager.NewAccount();
-        CmlLib.Core.Auth.Microsoft.Sessions.JEProfileSource.Default.Set(account.SessionStorage,
-            new CmlLib.Core.Auth.Microsoft.Sessions.JEProfile {
-                Username = "RestartFixture", UUID = "00000000000000000000000000000042" });
+        CmlLib.Core.Auth.Microsoft.Sessions.JEProfileSource.Default.Set(account.SessionStorage, new CmlLib.Core.Auth.Microsoft.Sessions.JEProfile { Username = "RestartFixture", UUID = "00000000000000000000000000000042" });
         manager.SaveAccounts();
         var saved = Assert.Single(new AccountService(config.DataDirectory).GetAccounts());
         config.SelectedAccountId = saved.Id;
         await config.SaveAsync();
-
         var reopened = await LauncherConfig.LoadAsync(dataDirectory: config.DataDirectory);
         var restored = Assert.Single(new AccountService(reopened.DataDirectory).GetAccounts());
         Assert.Equal("RestartFixture", restored.Name);
@@ -68,7 +66,11 @@ public sealed class AccountAndUpdateTests : IDisposable
         var jar = Path.Combine(directory, "plutonium-1.21.11.jar");
         var metadata = Path.Combine(directory, "plutonium-1.21.11.json");
         using (var archive = System.IO.Compression.ZipFile.Open(jar, System.IO.Compression.ZipArchiveMode.Update))
-        { using var writer = new StreamWriter(archive.CreateEntry("new-release.txt").Open()); writer.Write("newer client fixture"); }
+        {
+            using var writer = new StreamWriter(archive.CreateEntry("new-release.txt").Open());
+            writer.Write("newer client fixture");
+        }
+
         var newerHash = SHA256.HashData(await File.ReadAllBytesAsync(jar));
         config.StandaloneClientVersion = "99.0.0";
         File.Delete(metadata);
@@ -112,8 +114,7 @@ public sealed class AccountAndUpdateTests : IDisposable
         using var cancellation = new CancellationTokenSource();
         var updates = new UpdateService(new HttpClient(new CancelHandler(cancellation)));
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("replacement")));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => updates.DownloadVerifiedAsync(
-            new UpdateAsset("https://updates.example/client.jar", hash), target, cancellationToken: cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => updates.DownloadVerifiedAsync(new UpdateAsset("https://updates.example/client.jar", hash), target, cancellationToken: cancellation.Token));
         Assert.Equal("installed client", await File.ReadAllTextAsync(target));
         Assert.Single(Directory.GetFiles(_root));
     }
@@ -128,9 +129,29 @@ public sealed class AccountAndUpdateTests : IDisposable
         await File.WriteAllTextAsync(staged, "new launcher fixture");
         await File.WriteAllTextAsync(target, "previous launcher fixture");
         var script = LauncherUpdateHandoff.WriteScript(directory);
-        var start = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true };
-        foreach (var arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script,
-                     "-Staged", staged, "-Target", target, "-LauncherPid", "0", "-NoRestart" }) start.ArgumentList.Add(arg);
+        var start = new ProcessStartInfo("powershell.exe")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        foreach (var arg in new[]
+        {
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            script,
+            "-Staged",
+            staged,
+            "-Target",
+            target,
+            "-LauncherPid",
+            "0",
+            "-NoRestart"
+        }
+
+        )
+            start.ArgumentList.Add(arg);
         using var process = Process.Start(start)!;
         await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
         Assert.Equal(0, process.ExitCode);
@@ -143,17 +164,18 @@ public sealed class AccountAndUpdateTests : IDisposable
     [InlineData("http://updates.example/manifest.json")]
     [InlineData("file:///C:/manifest.json")]
     [InlineData("not a URL")]
-    public void SettingsRejectInvalidUpdateFeeds(string value) =>
-        Assert.Throws<InvalidDataException>(() => UpdateService.ValidateManifestUrl(value));
-
+    public void SettingsRejectInvalidUpdateFeeds(string value) => Assert.Throws<InvalidDataException>(() => UpdateService.ValidateManifestUrl(value));
     private LauncherConfig Config() => new()
     {
         DataRootOverride = Path.Combine(_root, "launcher"),
         MinecraftDirectory = Path.Combine(_root, "minecraft"),
         StandaloneGameDirectory = Path.Combine(_root, "minecraft")
     };
-
-    public void Dispose() { if (Directory.Exists(_root)) Directory.Delete(_root, true); }
+    public void Dispose()
+    {
+        if (Directory.Exists(_root))
+            Directory.Delete(_root, true);
+    }
 
     private sealed class CancelHandler(CancellationTokenSource source) : HttpMessageHandler
     {

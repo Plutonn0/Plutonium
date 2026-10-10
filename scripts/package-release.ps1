@@ -1,7 +1,7 @@
 param(
-    [Parameter(Mandatory=$true)][string]$PublicBaseUrl,
-    [string]$ClientVersion = '2.0.61',
-    [string]$LauncherVersion = '2.0.61'
+    [Parameter(Mandatory = $true)][string]$PublicBaseUrl,
+    [string]$ClientVersion = '2.0.62',
+    [string]$LauncherVersion = '2.0.62'
 )
 $ErrorActionPreference = 'Stop'
 $uri = [Uri]$PublicBaseUrl
@@ -18,10 +18,10 @@ function Add-Asset([string]$source, [string]$name) {
     return @{ url = "$base/$([Uri]::EscapeDataString($name))"; sha256 = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 $standalone = Add-Asset 'build/client/plutonium-1.21.11.jar' "plutonium-client-$ClientVersion.jar"
-$fabric = Add-Asset 'fabric/build/libs/plutonium-client-fabric-2.0.61.jar' "plutonium-fabric-$ClientVersion.jar"
+$fabric = Add-Asset 'fabric/build/libs/plutonium-client-fabric-2.0.62.jar' "plutonium-fabric-$ClientVersion.jar"
 $exe = Add-Asset 'dist/Plutonium Client.exe' "Plutonium.Client.exe"
-$client = @{version=$ClientVersion;standalone=$standalone;fabric=$fabric} | ConvertTo-Json -Depth 4
-$launcher = @{version=$LauncherVersion;executable=$exe} | ConvertTo-Json -Depth 4
+$client = @{version = $ClientVersion; standalone = $standalone; fabric = $fabric } | ConvertTo-Json -Depth 4
+$launcher = @{version = $LauncherVersion; executable = $exe } | ConvertTo-Json -Depth 4
 [IO.File]::WriteAllText((Join-Path $output 'client.json'), $client)
 [IO.File]::WriteAllText((Join-Path $output 'launcher.json'), $launcher)
 Write-Output "Release prepared in $output. Upload binaries first, then manifests. This script does not publish anything."

@@ -11,10 +11,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Gui.class)
 abstract class GuiMixin {
-    @Inject(method="renderScoreboardSidebar",at=@At("HEAD"),cancellable=true)
-    private void quirk$fakeStats(GuiGraphics g,DeltaTracker delta,CallbackInfo ci){if(Quirk.fakeStats())ci.cancel();}
+    @Inject(method = "renderScoreboardSidebar", at = @At("HEAD"), cancellable = true)
+    private void quirk$fakeStats(GuiGraphics g, DeltaTracker delta, CallbackInfo ci) {
+        if (Quirk.fakeStats()) ci.cancel();
+    }
+
     @Inject(method = "render", at = @At("TAIL"))
-    private void quirk$renderOverlay(GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+    private void quirk$renderOverlay(
+            GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         Quirk.renderHud(graphics);
     }
 }

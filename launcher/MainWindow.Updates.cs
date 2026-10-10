@@ -8,17 +8,18 @@ public partial class MainWindow
     private ClientUpdateManifest? _clientRelease;
     private LauncherUpdateManifest? _launcherRelease;
     private bool _clientUpdateNeeded;
-
     private async Task<bool> ApplyAutomaticLauncherUpdateAsync()
     {
-        if (_config?.AutomaticUpdates != true || _launcherRelease is null || IsSmokeTestRun || GetSmokeLaunchProfile() is not null) return false;
+        if (_config?.AutomaticUpdates != true || _launcherRelease is null || IsSmokeTestRun || GetSmokeLaunchProfile() is not null)
+            return false;
         await DownloadLauncherUpdateAsync();
         return true;
     }
 
     private async Task RefreshUpdateStatusAsync(bool applyUpdates = false)
     {
-        if (_config is null) return;
+        if (_config is null)
+            return;
         _clientRelease = null;
         _launcherRelease = null;
         _clientUpdateNeeded = false;
@@ -38,7 +39,8 @@ public partial class MainWindow
                 bool matches = await UpdateService.FileMatchesSha256Async(ClientUpdateTarget, asset.Sha256, timeout.Token);
                 _clientUpdateNeeded = status.Available || (manifest.Version == installed && !matches);
                 _clientRelease = manifest;
-                if (_clientUpdateNeeded && !status.Available) ClientUpdateDetail.Text = "Repair available for installed version";
+                if (_clientUpdateNeeded && !status.Available)
+                    ClientUpdateDetail.Text = "Repair available for installed version";
             }
         }
         catch (Exception ex) when (!OperationToken.IsCancellationRequested && ex is not OutOfMemoryException)
@@ -46,56 +48,62 @@ public partial class MainWindow
             ClientUpdateDetail.Text = "Client update check failed: " + ErrorReport.Redact(ex.Message);
             ShowError(new IOException("Client update check failed: " + ex.Message, ex));
         }
+
         using var launcherTimeout = CancellationTokenSource.CreateLinkedTokenSource(OperationToken);
         launcherTimeout.CancelAfter(TimeSpan.FromSeconds(15));
         try
         {
             var (status, manifest) = await _updates.CheckLauncherAsync(_config.LauncherManifestUrl, CurrentLauncherVersion, launcherTimeout.Token);
             LauncherUpdateDetail.Text = status.Status;
-            if (status.Available) _launcherRelease = manifest;
+            if (status.Available)
+                _launcherRelease = manifest;
         }
         catch (Exception ex) when (!OperationToken.IsCancellationRequested && ex is not OutOfMemoryException)
         {
             LauncherUpdateDetail.Text = "Launcher update check failed: " + ErrorReport.Redact(ex.Message);
             ShowError(new IOException("Launcher update check failed: " + ex.Message, ex));
         }
+
         OperationToken.ThrowIfCancellationRequested();
-        if (applyUpdates && _clientUpdateNeeded) await InstallClientUpdateAsync();
+        if (applyUpdates && _clientUpdateNeeded)
+            await InstallClientUpdateAsync();
         InstallClientUpdateButton.IsEnabled = _clientUpdateNeeded;
         InstallLauncherUpdateButton.IsEnabled = _launcherRelease is not null;
         UpdateButton.Content = _clientUpdateNeeded || _launcherRelease is not null ? "UPDATES" : "CHECK";
-        UpdateStatus.Text = $"Client {(_fabricSelected ? _config.FabricClientVersion : _config.StandaloneClientVersion)} · Launcher {CurrentLauncherVersion}\n"
-            + (_clientUpdateNeeded || _launcherRelease is not null ? "Update available" : ClientUpdateDetail.Text);
+        UpdateStatus.Text = $"Client {(_fabricSelected ? _config.FabricClientVersion : _config.StandaloneClientVersion)} · Launcher {CurrentLauncherVersion}\n" + (_clientUpdateNeeded || _launcherRelease is not null ? "Update available" : ClientUpdateDetail.Text);
         VersionsFooter.Text = $"LAUNCHER {CurrentLauncherVersion} / CLIENT {(_fabricSelected ? _config.FabricClientVersion : _config.StandaloneClientVersion)}";
     }
 
-    private string ClientUpdateTarget => _fabricSelected
-        ? InstallationDiscovery.FabricModPath(_config!.MinecraftDirectory)
-        : Path.Combine(_config!.StandaloneGameDirectory, "versions", "plutonium-1.21.11", "plutonium-1.21.11.jar");
+    private string ClientUpdateTarget => _fabricSelected ? InstallationDiscovery.FabricModPath(_config!.MinecraftDirectory) : Path.Combine(_config!.StandaloneGameDirectory, "versions", "plutonium-1.21.11", "plutonium-1.21.11.jar");
 
     private async Task InstallClientUpdateAsync()
     {
-        if (_config is null || _clientRelease is null || !_clientUpdateNeeded) return;
+        if (_config is null || _clientRelease is null || !_clientUpdateNeeded)
+            return;
         var release = _clientRelease;
         SetStage("UPDATING", $"Installing client {release.Version}");
         Progress.Visibility = Visibility.Visible;
         Progress.Value = 0;
-        await new UpdateHistory(_config.DataDirectory).CaptureAsync(_fabricSelected ? "Fabric" : "Standalone",
-            _fabricSelected ? _config.FabricClientVersion : _config.StandaloneClientVersion, ClientUpdateTarget, OperationToken);
+        await new UpdateHistory(_config.DataDirectory).CaptureAsync(_fabricSelected ? "Fabric" : "Standalone", _fabricSelected ? _config.FabricClientVersion : _config.StandaloneClientVersion, ClientUpdateTarget, OperationToken);
         var fromVersion = _fabricSelected ? _config.FabricClientVersion : _config.StandaloneClientVersion;
         try
         {
-            await _updates.DownloadVerifiedAsync(_fabricSelected ? release.Fabric : release.Standalone,
-                ClientUpdateTarget, new Progress<double>(value => Progress.Value = value * 100), OperationToken);
+            await _updates.DownloadVerifiedAsync(_fabricSelected ? release.Fabric : release.Standalone, ClientUpdateTarget, new Progress<double>(value => Progress.Value = value * 100), OperationToken);
         }
         catch
         {
             await new UpdateHistory(_config.DataDirectory).RecordAsync(_fabricSelected ? "Fabric" : "Standalone", fromVersion, release.Version, "Download failed or cancelled · previous client preserved");
             throw;
         }
-        if (_fabricSelected) _config.FabricClientVersion = release.Version;
-        else _config.StandaloneClientVersion = release.Version;
-        if (_fabricSelected) _config.FabricRollbackHash = ""; else _config.StandaloneRollbackHash = "";
+
+        if (_fabricSelected)
+            _config.FabricClientVersion = release.Version;
+        else
+            _config.StandaloneClientVersion = release.Version;
+        if (_fabricSelected)
+            _config.FabricRollbackHash = "";
+        else
+            _config.StandaloneRollbackHash = "";
         await _config.SaveAsync();
         await new UpdateHistory(_config.DataDirectory).RecordAsync(_fabricSelected ? "Fabric" : "Standalone", fromVersion, release.Version, "Installed and verified");
         _clientUpdateNeeded = false;
@@ -110,17 +118,15 @@ public partial class MainWindow
         await InstallClientUpdateAsync();
         await RefreshUpdateStatusAsync();
     });
-
     private async void InstallLauncherUpdate_Click(object sender, RoutedEventArgs e) => await RunOperationAsync(DownloadLauncherUpdateAsync);
-
     private async Task DownloadLauncherUpdateAsync()
     {
-        if (_launcherRelease is null || _config is null) return;
+        if (_launcherRelease is null || _config is null)
+            return;
         SetStage("UPDATING", $"Downloading launcher {_launcherRelease.Version}");
         var staged = Path.Combine(_config.DataDirectory, "updates", "Plutonium Client.exe.next");
         Progress.Visibility = Visibility.Visible;
-        await _updates.DownloadVerifiedAsync(_launcherRelease.Executable, staged,
-            new Progress<double>(value => Progress.Value = value * 100), OperationToken);
+        await _updates.DownloadVerifiedAsync(_launcherRelease.Executable, staged, new Progress<double>(value => Progress.Value = value * 100), OperationToken);
         OperationToken.ThrowIfCancellationRequested();
         await new UpdateHistory(_config.DataDirectory).CaptureAsync("Launcher", CurrentLauncherVersion, Environment.ProcessPath!, OperationToken);
         await new UpdateHistory(_config.DataDirectory).RecordAsync("Launcher", CurrentLauncherVersion, _launcherRelease.Version, "Verified download · replacement scheduled on exit");
