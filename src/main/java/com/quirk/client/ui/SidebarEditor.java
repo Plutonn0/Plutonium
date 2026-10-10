@@ -17,7 +17,6 @@ public final class SidebarEditor extends Screen {
     public SidebarEditor(Screen previous) {
         super(Component.literal("Scoreboard editor"));
         this.previous = previous;
-        Quirk.settings().module("fakestats").get("live").set(true);
     }
 
     @Override
@@ -74,8 +73,8 @@ public final class SidebarEditor extends Screen {
                         buttonWidth,
                         25,
                         Quirk.settings().module("fakestats").enabled.on()
-                                ? "Preview: ON"
-                                : "Preview: OFF",
+                                ? "Fake Stats: ON"
+                                : "Fake Stats: OFF",
                         () -> {
                             Quirk.settings().module("fakestats").enabled.toggle();
                             rebuildWidgets();
@@ -214,6 +213,24 @@ public final class SidebarEditor extends Screen {
     }
 
     @Override
+    public void tick() {
+        FakeStats.tick();
+        var latest = FakeStats.snapshot();
+        if (!java.util.Objects.equals(
+                        snapshot == null ? null : snapshot.scope(),
+                        latest == null ? null : latest.scope())
+                || (snapshot != null
+                        && latest != null
+                        && !snapshot.rows().stream()
+                                .map(FakeStats.Row::id)
+                                .toList()
+                                .equals(latest.rows().stream().map(FakeStats.Row::id).toList()))) {
+            snapshot = latest;
+            rebuildWidgets();
+        }
+    }
+
+    @Override
     public void render(GuiGraphics g, int mx, int my, float partial) {
         g.fill(0, 0, width, height, 0x99000000);
         g.fill(left, top, left + panelWidth, top + panelHeight, 0xf5111111);
@@ -237,7 +254,7 @@ public final class SidebarEditor extends Screen {
             hudText(
                     g,
                     HudRenderer.fit(
-                            "No scoreboard sidebar detected. Join a server, then refresh.",
+                            "Searching for an active sidebar. Join a server with a scoreboard.",
                             panelWidth - 24),
                     left + 12,
                     top + 78,

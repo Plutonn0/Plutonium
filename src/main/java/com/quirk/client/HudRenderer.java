@@ -76,31 +76,6 @@ public final class HudRenderer {
                 g.pose().popMatrix();
             }
         }
-        if (preview || s.module("fakestats").on()) {
-            var sidebar = FakeStats.display(preview);
-            if (sidebar != null) {
-                int width = Math.max(100, Paint.width(sidebar.title()) + 16);
-                for (var row : sidebar.rows())
-                    width =
-                            Math.max(
-                                    width,
-                                    Paint.width(row.label()) + Paint.width(row.value()) + 24);
-                width = Math.min(width, 420);
-                begin(g, "fakestats", width, 24 + sidebar.rows().size() * 16);
-                g.fill(0, 0, width, 24 + sidebar.rows().size() * 16, 0xd9111111);
-                hudText(g, fit(sidebar.title(), width - 12), 6, 2, 20, TEXT);
-                g.fill(6, 22, width - 6, 23, 0xff444444);
-                int y = 24;
-                for (var row : sidebar.rows()) {
-                    String value = fit(row.value(), width / 2),
-                            label = fit(row.label(), width - 20 - Paint.width(value));
-                    hudText(g, label, 6, y, 16, MUTED);
-                    hudText(g, value, width - 6 - Paint.width(value), y, 16, TEXT);
-                    y += 16;
-                }
-                g.pose().popMatrix();
-            }
-        }
         Notifications.render(g, preview);
     }
 

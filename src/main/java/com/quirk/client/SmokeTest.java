@@ -553,21 +553,6 @@ public final class SmokeTest {
                 }
                 if (step == 55) rightClickModule("fakestats");
 
-                if (step == 70) {
-                    clickOption("title", .5, 12);
-                    mc.screen.keyPressed(new KeyEvent(GLFW_KEY_A, 0, GLFW_MOD_CONTROL));
-                    check(
-                            Quirk.settings()
-                                    .module("fakestats")
-                                    .get("title")
-                                    .choice()
-                                    .equals("LOCAL PREVIEW"),
-                            "Select-all keeps text until replacement");
-                    mc.screen.charTyped(new CharacterEvent(81, 0));
-                    check(
-                            Quirk.settings().module("fakestats").get("title").choice().equals("Q"),
-                            "Text settings update immediately");
-                }
                 if (step == 75) {
                     screenshot("12-editable-settings.png");
                     mc.screen.onClose();
@@ -622,8 +607,8 @@ public final class SmokeTest {
                             !mc.isPaused() && mc.level.getGameTime() > worldTime + 5,
                             "HUD editor leaves the world running");
                     check(
-                            HudRenderer.frames().size() == 4,
-                            "HUD editor previews all four editable elements");
+                            HudRenderer.frames().size() == 3,
+                            "HUD editor previews all three editable elements");
                     var b = HudRenderer.frames().get("coordinates");
                     var down =
                             new MouseButtonEvent(b.x() + 5, b.y() + 5, new MouseButtonInfo(0, 0));
@@ -645,8 +630,8 @@ public final class SmokeTest {
                             "HUD editor scroll changes size");
                 }
                 if (step == 15) {
-                    var b = HudRenderer.frames().get("fakestats");
-                    double before = Quirk.settings().module("fakestats").number("scale");
+                    var b = HudRenderer.frames().get("active");
+                    double before = Quirk.settings().module("active").number("scale");
                     var down =
                             new MouseButtonEvent(
                                     b.x() + b.width() - 1,
@@ -657,12 +642,11 @@ public final class SmokeTest {
                             new MouseButtonEvent(
                                     down.x() - 12, down.y(), new MouseButtonInfo(0, 0));
                     mc.screen.mouseDragged(move, -12, 0);
-                    double after = Quirk.settings().module("fakestats").number("scale");
+                    double after = Quirk.settings().module("active").number("scale");
                     mc.screen.mouseDragged(move, 0, 0);
                     check(
                             after < before
-                                    && after
-                                            == Quirk.settings().module("fakestats").number("scale"),
+                                    && after == Quirk.settings().module("active").number("scale"),
                             "Right-anchored HUD corner resizes without feedback drift");
                     mc.screen.mouseReleased(move);
                 }
@@ -732,7 +716,11 @@ public final class SmokeTest {
                             field.value().equals("$9,999"),
                             "Custom scoreboard field supports click, select-all and replacement");
                     check(
-                            FakeStats.display(false).rows().getFirst().value().equals("$9,999"),
+                            FakeStats.formatName(
+                                            mc.level.getScoreboard().getPlayerTeam("balance_test"),
+                                            net.minecraft.network.chat.Component.literal(""))
+                                    .getString()
+                                    .equals("Balance: $9,999"),
                             "Scoreboard edits update the preview immediately");
                     check(
                             mc.level
@@ -749,7 +737,11 @@ public final class SmokeTest {
                                     net.minecraft.network.chat.Component.literal("$1,300"));
                     FakeStats.tick();
                     check(
-                            FakeStats.display(false).rows().getFirst().value().equals("$9,999"),
+                            FakeStats.formatName(
+                                            mc.level.getScoreboard().getPlayerTeam("balance_test"),
+                                            net.minecraft.network.chat.Component.literal(""))
+                                    .getString()
+                                    .equals("Balance: $9,999"),
                             "Local override survives live scoreboard updates");
                 }
                 if (step == 40) {
@@ -761,7 +753,11 @@ public final class SmokeTest {
                     screenshot("15-custom-hud.png");
                     Quirk.settings().sidebar.reset(FakeStats.snapshot().scope());
                     check(
-                            FakeStats.display(false).rows().getFirst().value().equals("$1,300"),
+                            FakeStats.formatName(
+                                            mc.level.getScoreboard().getPlayerTeam("balance_test"),
+                                            net.minecraft.network.chat.Component.literal(""))
+                                    .getString()
+                                    .equals("Balance: $1,300"),
                             "Reset restores the latest live scoreboard value");
                     Quirk.settings().module("freecam").enabled.set(true);
                     stage = 3;

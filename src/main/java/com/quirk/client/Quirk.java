@@ -733,12 +733,6 @@ public final class Quirk {
         return settings != null && !settings.module("nametags").on();
     }
 
-    public static boolean fakeStats() {
-        return settings != null
-                && (Minecraft.getInstance().screen instanceof com.quirk.client.ui.HudEditor
-                        || FakeStats.replacesSidebar());
-    }
-
     public static boolean noHitDelay() {
         return settings != null
                 && settings.module("nohitdelay").on()

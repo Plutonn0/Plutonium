@@ -210,12 +210,58 @@ public final class ClientBuilder {
                 m.instructions.insert(h);
                 hooks++;
             }
+            if (owner.endsWith("/Gui")) {
+                if (m.name.equals("displayScoreboardSidebar")) {
+                    m.instructions.insert(
+                            new MethodInsnNode(
+                                    Opcodes.INVOKESTATIC,
+                                    "com/quirk/client/FakeStats",
+                                    "prepare",
+                                    "()V",
+                                    false));
+                    hooks++;
+                }
+                if (m.name.equals("displayScoreboardSidebar")
+                        || m.name.startsWith("lambda$displayScoreboardSidebar$")) {
+                    for (var instruction : m.instructions.toArray()) {
+                        if (!(instruction instanceof MethodInsnNode invoke)) continue;
+                        String replacement = null;
+                        String descriptor = invoke.desc;
+                        if (invoke.owner.equals("net/minecraft/world/scores/PlayerTeam")
+                                && invoke.name.equals("formatNameForTeam"))
+                            replacement = "formatName";
+                        if (invoke.owner.equals("net/minecraft/world/scores/PlayerScoreEntry")
+                                && invoke.name.equals("formatValue")) {
+                            replacement = "formatValue";
+                            descriptor =
+                                    "(Lnet/minecraft/world/scores/PlayerScoreEntry;"
+                                            + invoke.desc.substring(1);
+                        }
+                        if (invoke.owner.equals("net/minecraft/world/scores/Objective")
+                                && invoke.name.equals("getDisplayName")) {
+                            replacement = "formatTitle";
+                            descriptor =
+                                    "(Lnet/minecraft/world/scores/Objective;)Lnet/minecraft/network/chat/Component;";
+                        }
+                        if (replacement != null) {
+                            m.instructions.set(
+                                    invoke,
+                                    new MethodInsnNode(
+                                            Opcodes.INVOKESTATIC,
+                                            "com/quirk/client/FakeStats",
+                                            replacement,
+                                            descriptor,
+                                            false));
+                            hooks++;
+                        }
+                    }
+                }
+            }
             if (((owner.endsWith("/EntityRenderer") || owner.endsWith("/AvatarRenderer"))
                             && m.name.equals("submitNameTag")
                             && (!owner.endsWith("/AvatarRenderer")
                                     || m.desc.startsWith(
                                             "(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;")))
-                    || (owner.endsWith("/Gui") && m.name.equals("renderScoreboardSidebar"))
                     || (owner.endsWith("/LiquidBlockRenderer") && m.name.equals("tesselate"))) {
                 InsnList h = new InsnList();
                 h.add(
@@ -223,7 +269,7 @@ public final class ClientBuilder {
                                 owner.endsWith("/EntityRenderer")
                                                 || owner.endsWith("/AvatarRenderer")
                                         ? "hideNameTags"
-                                        : owner.endsWith("/Gui") ? "fakeStats" : "xray",
+                                        : "xray",
                                 "()Z"));
                 LabelNode next = new LabelNode();
                 h.add(new JumpInsnNode(Opcodes.IFEQ, next));
@@ -475,11 +521,10 @@ public final class ClientBuilder {
             }
         }
         int expected =
-                c.name.endsWith("/Minecraft")
+                (c.name.endsWith("/Minecraft") || c.name.endsWith("/Gui"))
                         ? 5
                         : (c.name.endsWith("/Camera")
                                         || c.name.endsWith("/GameRenderer")
-                                        || c.name.endsWith("/Gui")
                                         || c.name.endsWith("/ClientPacketListener"))
                                 ? 2
                                 : c.name.endsWith("/LightTexture")

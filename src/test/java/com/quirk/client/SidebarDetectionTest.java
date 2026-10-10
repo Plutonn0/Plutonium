@@ -10,6 +10,37 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SidebarDetectionTest {
     @Test
+    void editsInlineValuesWithoutReplacingLayoutOrNeighbouringStyles() {
+        var original =
+                Component.literal("Balance: ")
+                        .withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal("$1,200").withStyle(ChatFormatting.GREEN));
+        var row = new FakeStats.Row("balance", "Balance:", "$1,200");
+        var edited =
+                FakeStats.editName(
+                        original, row, true, new SidebarOverrides.Fields(null, "$9,999"));
+        assertEquals("Balance: $9,999", edited.getString());
+        assertEquals("Balance: $1,200", original.getString());
+        var colors = new java.util.ArrayList<Integer>();
+        edited.visit(
+                (style, text) -> {
+                    if (!text.isEmpty()) colors.add(style.getColor().getValue());
+                    return java.util.Optional.empty();
+                },
+                net.minecraft.network.chat.Style.EMPTY);
+        assertEquals(
+                java.util.List.of(ChatFormatting.GRAY.getColor(), ChatFormatting.GREEN.getColor()),
+                colors);
+        assertEquals(
+                original,
+                FakeStats.editName(original, row, true, new SidebarOverrides.Fields(null, null)));
+        assertEquals(
+                "Balance: $1,200",
+                FakeStats.editName(original, row, false, new SidebarOverrides.Fields(null, "999"))
+                        .getString());
+    }
+
+    @Test
     void detectsTeamSidebarPrefixesBlankScoresAndPreservesServerData() {
         net.minecraft.SharedConstants.tryDetectVersion();
         net.minecraft.server.Bootstrap.bootStrap();

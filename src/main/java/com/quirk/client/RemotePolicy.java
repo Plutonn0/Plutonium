@@ -116,7 +116,7 @@ public final class RemotePolicy {
             }
             var body = new JsonObject();
             body.addProperty("kind", "client");
-            body.addProperty("version", "2.0.62");
+            body.addProperty("version", "2.0.7");
             var policy = post("heartbeat", body, true);
             var blocked = new HashSet<String>();
             for (var value : policy.getAsJsonArray("disabledFeatures"))

@@ -5,8 +5,7 @@ import java.util.*;
 
 /** Positions are fractions of the available screen area, so they survive GUI-scale changes. */
 public final class HudLayout {
-    public static final List<String> IDS =
-            List.of("coordinates", "active", "notifications", "fakestats");
+    public static final List<String> IDS = List.of("coordinates", "active", "notifications");
 
     public record Position(double x, double y) {}
 

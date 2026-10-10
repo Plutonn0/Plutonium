@@ -146,8 +146,13 @@ public final class QuirkMenu extends Screen {
                 rowY += ROW_H;
             }
         }
-        g.fill(16, H - 42, 150, H - 14, 0xe8181818);
-        hudText(g, "HUD editor", 38, H - 42, 28, TEXT);
+        double hudHover =
+                animate("hudEditor", mx >= 16 && mx < 150 && my >= H - 42 && my < H - 14 ? 1 : 0);
+        g.fill(16, H - 42, 150, H - 14, 0xe8101010);
+        g.fill(16, H - 42, 150, H - 14, ((int) (34 * hudHover) << 24) | 0xffffff);
+        g.fill(24, H - 15, 142, H - 14, 0xff333333);
+        String hudLabel = "Edit HUD";
+        hudText(g, hudLabel, 83 - Paint.width(hudLabel) / 2f, H - 42, 28, TEXT);
         hit(16, H - 42, 134, 28, () -> minecraft.setScreen(new HudEditor(this)));
         if (expanded != null) renderSettings(g);
         if (!Quirk.store().error.isEmpty())
@@ -181,13 +186,17 @@ public final class QuirkMenu extends Screen {
             description = description.substring(0, description.length() - 1);
         text(g, description, 266, 104, MUTED);
         g.fill(266, 132, 694, 133, 0xff333333);
-        contentHeight =
+        var visibleOptions =
                 expanded.options.stream()
+                        .filter(o -> !expanded.id.equals("fakestats") || o.id.equals("enabled"))
+                        .toList();
+        contentHeight =
+                visibleOptions.stream()
                         .mapToInt(o -> o.kind == Settings.Kind.COLOR ? 96 : 40)
                         .sum();
         scroll = (int) Math.clamp(scroll, 0, Math.max(0, contentHeight - 330));
         int y = 142 - scroll;
-        for (Settings.Option option : expanded.options) {
+        for (Settings.Option option : visibleOptions) {
             int height = option.kind == Settings.Kind.COLOR ? 96 : 40;
             if (y >= 140 && y + height <= 476) {
                 final int row = y;
