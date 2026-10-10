@@ -40,13 +40,15 @@ public final class Notifications {
             value=value.substring(0,value.offsetByCodePoints(value.length(),-1));
         return value.isEmpty()?value:value+"…";
     }
-    public static void render(GuiGraphics g){
-        if(!Quirk.settings().module("notifications").on())return;
+    public static void render(GuiGraphics g,boolean preview){
+        if(!preview&&!Quirk.settings().module("notifications").on())return;
         long now=System.nanoTime();queue.removeIf(n->now-n.start>n.duration);
         float scale=(float)(Quirk.settings().module("notifications").number("scale")/100);
-        g.pose().pushMatrix();g.pose().translate(6,g.guiHeight()-6);g.pose().scale(scale,scale);
-        int x=0,y=0;
-        for(Notice n:queue){
+        var notices=preview?List.of(new Notice("HUD layout saved","Drag to choose where notifications appear.",now-1_000_000_000L,5_000_000_000L)):new ArrayList<>(queue);
+        if(notices.isEmpty())return;
+        HudRenderer.begin(g,"notifications",200,84);
+        int x=0,y=84;
+        for(Notice n:notices){
             double elapsed=(now-n.start)/1e9,left=(n.duration-(now-n.start))/1e9;
             double opacity=Math.clamp(Math.min(elapsed*6,left*4),0,1);
             int height=n.description.isEmpty()?16:26;

@@ -5,6 +5,8 @@ import java.util.function.Consumer;
 
 /** Typed settings are the single source of truth for both the UI and rendering. */
 public final class Settings {
+    public final HudLayout hud=new HudLayout();
+    public final SidebarOverrides sidebar=new SidebarOverrides();
     public enum Kind { TOGGLE, SLIDER, CHOICE, COLOR, TEXT }
     public static final class Option {
         public final String id, label, unit;
@@ -112,7 +114,7 @@ public final class Settings {
         new Module("invtotem", "Auto Inv Totem", "MISC", "Equip a carried totem when your inventory is open", false),
         new Module("fakepay", "Fake Pay", "MISC", "Intercept /pay locally and show a simulated notification", false),
         new Module("netherite", "Netherite Finder", "MISC", "Highlight ancient debris in loaded chunks", false).add(slider("distance", "Render distance", 64, 16, 128, 8, " m"),choice("style", "Render style", "Filled", "Outline", "Filled"),color("color", "Color", 0xffd69b85)),
-        new Module("fakestats", "Fake Stats", "MISC", "Editable local sidebar; server statistics stay unchanged", false).add(text("title", "Sidebar title", "PLUTONIUM"),text("lines", "Rows (separate with |)", "Kills: 100|Deaths: 0|Balance: $1,000,000")),
+        new Module("fakestats", "Fake Stats", "MISC", "Edit detected sidebar values locally; server statistics stay unchanged", false).add(bool("live", "Detect current scoreboard", true),slider("scale", "Size", 75, 45, 150, 5, "%"),text("title", "Manual sidebar title", "PLUTONIUM"),text("lines", "Rows (separate with |)", "Kills: 100|Deaths: 0|Balance: $1,000,000")),
         new Module("weather", "Weather Notifier", "HUD", "Notify when weather changes, with a cooldown", false).add(slider("cooldown", "Cooldown", 15, 3, 120, 1, " s")),
         new Module("notifications", "Notifications", "HUD", "Compact bottom-left notifications with helpful descriptions", true).add(slider("duration", "Display duration", 4, 2, 10, 1, " s"),slider("scale", "Size", 60, 45, 100, 5, "%")),
         new Module("discord", "Discord Presence", "ENTERTAINMENT", "Display Plutonium in your desktop Discord activity", false).add(text("application", "Application ID", "1555301670643310712")),
@@ -121,7 +123,7 @@ public final class Settings {
         new Module("active", "Active Modules HUD", "HUD", "A compact list of enabled features", true).add(slider("scale", "Size", 65, 45, 100, 5, "%"),slider("rows", "Maximum visible modules", 10, 3, 20, 1, ""))
     );
     public Module module(String id) { return modules.stream().filter(m -> m.id.equals(id)).findFirst().orElseThrow(); }
-    public void onChange(Consumer<Module> callback) { for (Module m : modules) for (Option o : m.options) o.changed = () -> callback.accept(m); }
+    public void onChange(Consumer<Module> callback) { hud.onChange(()->callback.accept(module("coordinates")));sidebar.onChange(()->callback.accept(module("fakestats"))); for (Module m : modules) for (Option o : m.options) o.changed = () -> callback.accept(m); }
     public void reset(Module m) { for (Option o : m.options) o.set(o.defaultValue); }
     static Option bool(String id, String label, boolean v) { return new Option(id, label, Kind.TOGGLE, v, 0, 1, 1, "", List.of()); }
     static Option slider(String id, String label, double v, double min, double max, double step, String unit) { return new Option(id, label, Kind.SLIDER, v, min, max, step, unit, List.of()); }

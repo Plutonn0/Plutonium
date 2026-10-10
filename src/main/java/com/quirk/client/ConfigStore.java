@@ -32,6 +32,8 @@ public final class ConfigStore {
                     } catch (RuntimeException ignored) { /* Keep the safe default for an invalid individual value. */ }
                 }
             }
+            if(root.has("hudLayout")&&root.get("hudLayout").isJsonObject())settings.hud.load(root.getAsJsonObject("hudLayout"));
+            if(root.has("sidebarOverrides")&&root.get("sidebarOverrides").isJsonObject())settings.sidebar.load(root.getAsJsonObject("sidebarOverrides"));
             // A detached camera must never start automatically on joining a world.
             settings.module("freecam").enabled.set(false);
             settings.module("freelook").enabled.set(false);
@@ -58,6 +60,7 @@ public final class ConfigStore {
             for (Settings.Option o : m.options) data.add(o.id, GSON.toJsonTree(o.value()));
             root.add(m.id, data);
         }
+        root.add("hudLayout",settings.hud.save());root.add("sidebarOverrides",settings.sidebar.save());
         try {
             Files.createDirectories(file.getParent());
             Path tmp = file.resolveSibling(file.getFileName() + ".tmp");

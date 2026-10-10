@@ -77,7 +77,7 @@ public final class Quirk {
     public static void tick() {
         RemotePolicy.tick();
         if(settings!=null){fullbright=settings.module("fullbright").on();boolean nextXray=settings.module("xray").on();if(xray!=nextXray){xray=nextXray;if(Minecraft.getInstance().level!=null)Minecraft.getInstance().levelRenderer.allChanged();}}
-        initialize(); VideoSettingsPersistence.tick(); syncFreecam(); syncFreelook(); MovementModules.tick(); automate(); aimAssist(); extraAutomation(); store.tick(); overlay.tick(); Notifications.tick(); Entertainment.tick();
+        initialize(); FakeStats.tick(); VideoSettingsPersistence.tick(); syncFreecam(); syncFreelook(); MovementModules.tick(); automate(); aimAssist(); extraAutomation(); store.tick(); overlay.tick(); Notifications.tick(); Entertainment.tick();
     }
     public static void saveVideoSettings(){VideoSettingsPersistence.saveOnExit();}
     public static java.util.concurrent.CompletableFuture<net.minecraft.client.sounds.AudioStream> radioStream(net.minecraft.resources.Identifier id){
@@ -233,6 +233,7 @@ public final class Quirk {
         Minecraft mc=Minecraft.getInstance();
         if(action!=GLFW.GLFW_PRESS) return true;
         if(mc.screen instanceof QuirkMenu menu) { menu.onClose(); return true; }
+        if(mc.screen instanceof com.quirk.client.ui.HudEditor||mc.screen instanceof com.quirk.client.ui.SidebarEditor){mc.setScreen(null);return true;}
         if(mc.level==null || mc.player==null || mc.player.isDeadOrDying()) return false;
         if(mc.screen!=null) { if(!mc.screen.shouldCloseOnEsc()) return false; mc.screen.onClose(); }
         KeyMapping.releaseAll(); mc.setScreen(new QuirkMenu(null)); return true;
@@ -386,7 +387,7 @@ public final class Quirk {
     }
     public static void blockChanged(net.minecraft.world.level.block.state.BlockState before,net.minecraft.world.level.chunk.LevelChunk chunk,net.minecraft.core.BlockPos pos) { overlay.blockChanged(chunk,pos,before); }
     static int changedBlocksForTest(int x,int z){return overlay.changedBlocksForTest(x,z);}
-    public static void renderHud(GuiGraphics g) { initialize(); if(Minecraft.getInstance().level!=null) overlay.render(g); }
+    public static void renderHud(GuiGraphics g) { initialize(); if(Minecraft.getInstance().level!=null&&!(Minecraft.getInstance().screen instanceof com.quirk.client.ui.HudEditor)) overlay.render(g); }
     private static void syncFreelook(){
         var mc=Minecraft.getInstance();
         if(mc.screen!=null||!mc.isWindowActive()) altHeld=false;
@@ -399,7 +400,7 @@ public final class Quirk {
     public static void lightmap(net.minecraft.client.renderer.LightTexture light){if(fullbright)com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder().clearColorTexture(light.getTextureView().texture(),0xffffffff);}
     public static boolean xray(){return xray;}
     public static boolean hideNameTags(){return settings!=null&&!settings.module("nametags").on();}
-    public static boolean fakeStats(){return settings!=null&&settings.module("fakestats").on();}
+    public static boolean fakeStats(){return settings!=null&&(Minecraft.getInstance().screen instanceof com.quirk.client.ui.HudEditor||FakeStats.replacesSidebar());}
     public static boolean noHitDelay(){return settings!=null&&settings.module("nohitdelay").on()&&Minecraft.getInstance().screen==null;}
     public static boolean quickXpSuppressVanillaUse(){
         if(settings==null||!settings.module("quickexp").on())return false;

@@ -134,31 +134,6 @@ public final class Overlay {
     public void render(GuiGraphics g){
         Minecraft mc=Minecraft.getInstance();if(mc.player==null)return;Settings s=Quirk.settings();int w=g.guiWidth(),h=g.guiHeight();
         if(viewProjection!=null&&eye!=null)for(Label label:labels){Vec3 r=label.position.subtract(eye);Vector4f p=new Vector4f((float)r.x,(float)r.y,(float)r.z,1).mul(viewProjection);if(p.w<=0||Math.abs(p.x)>p.w||Math.abs(p.y)>p.w)continue;int x=(int)((p.x/p.w+1)*w*.5),y=(int)((1-p.y/p.w)*h*.5),tw=width(label.text);g.fill(x-tw/2-4,y-3,x+tw/2+4,y+12,0xb0000000);text(g,label.text,x-tw/2,y,label.color);}
-        if(s.module("coordinates").on()){
-            BlockPos p=mc.player.blockPosition();String[] lines={"X: "+p.getX(),"Y: "+p.getY(),"Z: "+p.getZ()};int bw=Arrays.stream(lines).mapToInt(Paint::width).max().orElse(45)+12;
-            float scale=(float)(s.module("coordinates").number("scale")/100);
-            g.pose().pushMatrix();g.pose().translate(6,6);g.pose().scale(scale,scale);g.fill(0,0,bw,41,0xd9111111);g.fill(0,0,1,41,0xffcccccc);for(int i=0;i<3;i++)hudText(g,lines[i],6,2.5f+12*i,12,TEXT);g.pose().popMatrix();
-        }
-        if(s.module("active").on()){
-            var module=s.module("active");float scale=(float)(module.number("scale")/100);
-            var enabled=s.modules.stream().filter(m->m.on()&&!m.category.equals("HUD")&&!m.id.equals("nametags")).sorted(java.util.Comparator.comparingInt((Settings.Module m)->width(m.name)).reversed()).toList();
-            int slots=Math.max(2,(int)((h-12)*.33/(16*scale)));
-            int visible=Math.min(enabled.size(),Math.min((int)module.number("rows"),slots));
-            if(visible<enabled.size())visible=Math.min(visible,slots-1);
-            g.pose().pushMatrix();g.pose().translate(w-6,6);g.pose().scale(scale,scale);
-            int y=0;
-            for(int i=0;i<visible+(visible<enabled.size()?1:0);i++){
-                String name=i<visible?enabled.get(i).name:"+ "+(enabled.size()-visible)+" more";
-                int tw=width(name);g.fill(-tw-12,y,0,y+15,0xd9111111);g.fill(-1,y,0,y+15,0xffcccccc);
-                hudText(g,name,-tw-7,y,15,TEXT);y+=16;
-            }
-            g.pose().popMatrix();
-        }
-        if(s.module("fakestats").on()){
-            var m=s.module("fakestats");List<String> rows=new ArrayList<>();rows.add(m.get("title").choice());rows.addAll(Arrays.stream(m.get("lines").choice().split("\\|",-1)).limit(15).toList());int bw=Math.min(w/2,rows.stream().mapToInt(Paint::width).max().orElse(100)+16),y=h/2-rows.size()*8;
-            g.fill(w-bw-7,y-6,w-7,y+rows.size()*16+4,0xbf000000);g.enableScissor(w-bw-7,y-6,w-7,y+rows.size()*16+4);for(String row:rows){text(g,row,w-bw/2-7-width(row)/2,y,TEXT);y+=16;}g.disableScissor();
-        }
-        Notifications.render(g);
+        HudRenderer.render(g,false);
     }
 }
-

@@ -84,6 +84,7 @@ public final class QuirkMenu extends Screen {
                 rowY+=ROW_H;
             }
         }
+        g.fill(16,H-42,150,H-14,0xe8181818);hudText(g,"HUD editor",38,H-42,28,TEXT);hit(16,H-42,134,28,()->minecraft.setScreen(new HudEditor(this)));
         if(expanded!=null)renderSettings(g);
         if(!Quirk.store().error.isEmpty())centeredText(g,Quirk.store().error,W/2,H-39,0xffff9999);
         g.pose().popMatrix();
@@ -92,6 +93,7 @@ public final class QuirkMenu extends Screen {
         hits.clear();
         g.fill(0,0,W,H,0xb5000000);g.fill(248,64,712,490,0xf5111111);
         text(g,expanded.name,266,78,TEXT);text(g,"Close",656,78,MUTED);
+        if(expanded.id.equals("fakestats")){g.fill(464,74,640,98,0xff303030);hudText(g,"Edit current scoreboard",475,74,24,TEXT);hit(464,74,176,24,()->minecraft.setScreen(new SidebarEditor(this)));}
         hit(648,73,54,28,()->{expanded=null;editing=null;dragging=null;});
         String description=expanded.description;
         while(width(description)>428)description=description.substring(0,description.length()-1);

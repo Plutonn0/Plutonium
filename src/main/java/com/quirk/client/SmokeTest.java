@@ -230,7 +230,43 @@ public final class SmokeTest {
                 if(step==20){check(!mc.player.getAbilities().flying&&!mc.player.getAbilities().mayfly,"Fly restores survival abilities when disabled");
                     mc.getConnection().sendCommand("item replace entity @s armor.chest with elytra");mc.getConnection().sendCommand("tp @s 0 40 0");}
                 if(step==35){var server=mc.getSingleplayerServer();server.execute(()->server.getPlayerList().getPlayer(mc.player.getUUID()).startFallFlying());mc.player.startFallFlying();mc.player.setXRot(20);Quirk.settings().module("elytraglide").enabled.set(true);}
-                if(step==45){check(mc.player.isFallFlying()&&mc.player.getDeltaMovement().length()>.4,"Elytra Glide provides sustained momentum without rockets");Quirk.settings().module("elytraglide").enabled.set(false);Quirk.settings().module("freecam").enabled.set(true);stage=3;
+                if(step==45){check(mc.player.isFallFlying()&&mc.player.getDeltaMovement().length()>.4,"Elytra Glide provides sustained momentum without rockets");Quirk.settings().module("elytraglide").enabled.set(false);stage=7;step=0;
+                    mc.setScreen(new com.quirk.client.ui.HudEditor(new QuirkMenu(null)));worldTime=mc.level.getGameTime();}
+            } else if(stage==7){
+                step++;mc.setWindowActive(true);
+                if(step==10){
+                    check(!mc.isPaused()&&mc.level.getGameTime()>worldTime+5,"HUD editor leaves the world running");
+                    check(HudRenderer.frames().size()==4,"HUD editor previews all four editable elements");
+                    var b=HudRenderer.frames().get("coordinates");
+                    var down=new MouseButtonEvent(b.x()+5,b.y()+5,new MouseButtonInfo(0,0));mc.screen.mouseClicked(down,false);
+                    var move=new MouseButtonEvent(mc.screen.width*.4,mc.screen.height*.4,new MouseButtonInfo(0,0));mc.screen.mouseDragged(move,100,100);mc.screen.mouseReleased(move);
+                    check(Quirk.settings().hud.position("coordinates").x()>.2,"Dragging coordinates updates its saved position");
+                    double before=Quirk.settings().module("coordinates").number("scale");mc.screen.mouseScrolled(move.x(),move.y(),0,1);
+                    check(Quirk.settings().module("coordinates").number("scale")>before,"HUD editor scroll changes size");
+                }
+                if(step==15){var b=HudRenderer.frames().get("fakestats");double before=Quirk.settings().module("fakestats").number("scale");var down=new MouseButtonEvent(b.x()+b.width()-1,b.y()+b.height()-1,new MouseButtonInfo(0,0));mc.screen.mouseClicked(down,false);var move=new MouseButtonEvent(down.x()-12,down.y(),new MouseButtonInfo(0,0));mc.screen.mouseDragged(move,-12,0);double after=Quirk.settings().module("fakestats").number("scale");mc.screen.mouseDragged(move,0,0);check(after<before&&after==Quirk.settings().module("fakestats").number("scale"),"Right-anchored HUD corner resizes without feedback drift");mc.screen.mouseReleased(move);}
+                if(step==17){f8();check(mc.screen==null,"F8 closes the HUD editor back to the world");mc.setScreen(new com.quirk.client.ui.HudEditor(new QuirkMenu(null)));}
+                if(step==20){screenshot("13-hud-editor.png");mc.screen.keyPressed(new KeyEvent(GLFW_KEY_ESCAPE,0,0));check(mc.screen instanceof QuirkMenu,"HUD editor ESC returns to the client menu");mc.screen.onClose();
+                    var board=mc.level.getScoreboard();var objective=board.addObjective("hud_test",net.minecraft.world.scores.criteria.ObjectiveCriteria.DUMMY,net.minecraft.network.chat.Component.literal("PLUTONIUM"),net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType.INTEGER,false,net.minecraft.network.chat.numbers.BlankFormat.INSTANCE);
+                    board.setDisplayObjective(net.minecraft.world.scores.DisplaySlot.SIDEBAR,objective);
+                    var team=board.addPlayerTeam("balance_test");team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("Balance: "));team.setPlayerSuffix(net.minecraft.network.chat.Component.literal("$1,200"));board.addPlayerToTeam("",team);
+                    board.getOrCreatePlayerScore(net.minecraft.world.scores.ScoreHolder.forNameOnly(""),objective).set(15);
+                    Quirk.settings().module("fakestats").get("live").set(true);Quirk.settings().module("fakestats").enabled.set(true);FakeStats.tick();
+                    check(FakeStats.snapshot().rows().getFirst().value().equals("$1,200"),"Fake Stats detects the formatted live scoreboard value");
+                    mc.setScreen(new com.quirk.client.ui.SidebarEditor(null));
+                }
+                if(step==30){
+                    var field=mc.screen.children().stream().filter(c->c instanceof com.quirk.client.ui.PolishedField f&&f.getMessage().getString().equals("Displayed value")).map(c->(com.quirk.client.ui.PolishedField)c).findFirst().orElseThrow();
+                    var click=new MouseButtonEvent(field.getX()+10,field.getY()+10,new MouseButtonInfo(0,0));mc.screen.mouseClicked(click,false);mc.screen.mouseReleased(click);
+                    mc.screen.keyPressed(new KeyEvent(GLFW_KEY_A,0,GLFW_MOD_CONTROL));for(char c:"$9,999".toCharArray())mc.screen.charTyped(new CharacterEvent(c,0));
+                    check(field.value().equals("$9,999"),"Custom scoreboard field supports click, select-all and replacement");
+                    check(FakeStats.display(false).rows().getFirst().value().equals("$9,999"),"Scoreboard edits update the preview immediately");
+                    check(mc.level.getScoreboard().getPlayersTeam("").getPlayerSuffix().getString().equals("$1,200"),"Fake Stats leaves the original scoreboard data untouched");
+                    mc.level.getScoreboard().getPlayersTeam("").setPlayerSuffix(net.minecraft.network.chat.Component.literal("$1,300"));FakeStats.tick();
+                    check(FakeStats.display(false).rows().getFirst().value().equals("$9,999"),"Local override survives live scoreboard updates");
+                }
+                if(step==40){screenshot("14-scoreboard-editor.png");mc.screen.onClose();Quirk.store().flush();}
+                if(step==50){screenshot("15-custom-hud.png");Quirk.settings().sidebar.reset(FakeStats.snapshot().scope());check(FakeStats.display(false).rows().getFirst().value().equals("$1,300"),"Reset restores the latest live scoreboard value");Quirk.settings().module("freecam").enabled.set(true);stage=3;
                     mc.schedule(()->{mc.level.disconnect(net.minecraft.network.chat.Component.literal("Smoke test complete"));mc.disconnectWithSavingScreen();});}
             } else if(stage==3 && mc.level==null) {
                 check(!Quirk.freecam()&&!Quirk.settings().module("freecam").on(),"Disconnect disarms freecam"); finish(true,"All in-game smoke assertions passed.");
