@@ -11,12 +11,17 @@ public final class Paint {
     // The standalone game's built-in resource pack exposes the minecraft namespace.
     private static final Style FONT = Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath("minecraft", "quirk")));
     public static Component label(String text) { return Component.literal(text).withStyle(FONT); }
+    public static Component label(Component text) { return text.copy().withStyle(FONT); }
+    public static int styledWidth(Component text) { return (int)Math.ceil(Minecraft.getInstance().font.width(label(text)) * 0.5); }
     public static int width(String text) { return (int)Math.ceil(Minecraft.getInstance().font.width(label(text)) * 0.5); }
     public static void text(GuiGraphics g, String s, int x, int y, int color) {
         g.pose().pushMatrix(); g.pose().translate(x,y+6); g.pose().scale(0.5f,0.5f);
         g.drawString(Minecraft.getInstance().font, label(s), 0, 0, color, false); g.pose().popMatrix();
     }
     public static void hudText(GuiGraphics g, String s, float x, float top, float height, int color) {
+        hudText(g,Component.literal(s),x,top,height,color);
+    }
+    public static void hudText(GuiGraphics g, Component s, float x, float top, float height, int color) {
         var font = Minecraft.getInstance().font;
         var label = label(s);
         var bounds = font.prepareText(label.getVisualOrderText(), 0, 0, color, false, false, 0).bounds();

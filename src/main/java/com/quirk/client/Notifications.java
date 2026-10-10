@@ -3,15 +3,20 @@ package com.quirk.client;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import com.quirk.client.ui.Paint;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import java.util.*;
 
 public final class Notifications {
-    private record Notice(String title,String description,long start,long duration){}
+    private record Notice(Component title,String description,long start,long duration){}
     private static final Deque<Notice> queue=new ArrayDeque<>();
     private static final Map<String,Long> cooldowns=new HashMap<>();
     private static Object level;
     private static int weather=-1;
     public static void show(String key,String text,int cooldownSeconds){
+        show(key,Component.literal(text),cooldownSeconds);
+    }
+    public static void show(String key,Component text,int cooldownSeconds){
         String detail=switch(key){
             case "weather"->"The weather changed in your current world.";
             case "ate"->"Released use and restored your hotbar selection.";
@@ -25,6 +30,9 @@ public final class Notifications {
         show(key,text,detail,cooldownSeconds);
     }
     public static void show(String key,String title,String description,int cooldownSeconds){
+        show(key,Component.literal(title),description,cooldownSeconds);
+    }
+    public static void show(String key,Component title,String description,int cooldownSeconds){
         var s=Quirk.settings();if(!s.module("notifications").on())return;long now=System.nanoTime();
         if(now<cooldowns.getOrDefault(key,0L))return;cooldowns.put(key,now+cooldownSeconds*1_000_000_000L);
         queue.addLast(new Notice(title,description,now,(long)(s.module("notifications").number("duration")*1e9)));while(queue.size()>3)queue.removeFirst();
@@ -40,11 +48,18 @@ public final class Notifications {
             value=value.substring(0,value.offsetByCodePoints(value.length(),-1));
         return value.isEmpty()?value:value+"…";
     }
+    private static Component fit(Component value,int maxWidth){
+        if(Paint.styledWidth(value)<=maxWidth)return value;
+        var result=Component.empty();
+        Minecraft.getInstance().font.substrByWidth(Paint.label(value),Math.max(0,(maxWidth-Paint.width("…"))*2))
+            .visit((style,text)->{result.append(Component.literal(text).withStyle(style));return Optional.empty();},Style.EMPTY);
+        return result.append("…");
+    }
     public static void render(GuiGraphics g,boolean preview){
         if(!preview&&!Quirk.settings().module("notifications").on())return;
         long now=System.nanoTime();queue.removeIf(n->now-n.start>n.duration);
         float scale=(float)(Quirk.settings().module("notifications").number("scale")/100);
-        var notices=preview?List.of(new Notice("HUD layout saved","Drag to choose where notifications appear.",now-1_000_000_000L,5_000_000_000L)):new ArrayList<>(queue);
+        var notices=preview?List.of(new Notice(Component.literal("HUD layout saved"),"Drag to choose where notifications appear.",now-1_000_000_000L,5_000_000_000L)):new ArrayList<>(queue);
         if(notices.isEmpty())return;
         HudRenderer.begin(g,"notifications",200,84);
         int x=0,y=84;
@@ -53,8 +68,8 @@ public final class Notifications {
             double opacity=Math.clamp(Math.min(elapsed*6,left*4),0,1);
             int height=n.description.isEmpty()?16:26;
             int maxWidth=Math.max(1,Math.min(200,(int)((g.guiWidth()-12)/scale)));
-            int width=Math.min(maxWidth,Math.max(80,Math.max(Paint.width(n.title),Paint.width(n.description))+12));
-            String title=fit(n.title,width-12),description=fit(n.description,width-12);
+            int width=Math.min(maxWidth,Math.max(80,Math.max(Paint.styledWidth(n.title),Paint.width(n.description))+12));
+            Component title=fit(n.title,width-12);String description=fit(n.description,width-12);
             int cardX=x+(int)((1-opacity)*12);
             y-=height;
             int alpha=(int)(opacity*232);

@@ -2,7 +2,7 @@ param([string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $standalone = Join-Path $root 'build/client/plutonium-1.21.11.jar'
-$fabric = Join-Path $root 'fabric/build/libs/plutonium-client-fabric-2.0.6.jar'
+$fabric = Join-Path $root 'fabric/build/libs/plutonium-client-fabric-2.0.61.jar'
 $metadata = Join-Path $root 'build/game/version.json'
 foreach ($required in @($standalone, $fabric, $metadata)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required build artifact is missing: $required" }

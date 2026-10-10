@@ -413,9 +413,12 @@ public final class Quirk {
     public static boolean interceptCommand(String command){
         if(settings==null||!settings.module("fakepay").on()||!isPayCommand(command))return false;
         String[] args=command.strip().replaceFirst("^/", "").split("\\s+");
-        String message=args.length>=3?"Paid "+args[2]+" to "+args[1]+" (local preview)":"Fake Pay: /pay <player> <amount>";
+        var message=args.length>=3?net.minecraft.network.chat.Component.literal("You paid "+args[1]+" ")
+            .append(net.minecraft.network.chat.Component.literal("$").withColor(0x00ff00))
+            .append(net.minecraft.network.chat.Component.literal(" "+args[2]))
+            :net.minecraft.network.chat.Component.literal("Fake Pay: /pay <player> <amount>");
         Notifications.show("pay",message,0);
-        var player=Minecraft.getInstance().player;if(player!=null)player.displayClientMessage(net.minecraft.network.chat.Component.literal(message),false);
+        var player=Minecraft.getInstance().player;if(player!=null)player.displayClientMessage(message,false);
         return true;
     }
     static boolean isPayCommand(String command){String token=command.strip().replaceFirst("^/", "").split("\\s+",2)[0].toLowerCase(Locale.ROOT);return token.equals("pay")||token.endsWith(":pay");}
