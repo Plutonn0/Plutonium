@@ -95,19 +95,21 @@ public final class SmokeTest {
                 stage = 1;
                 System.out.println("[Plutonium smoke] Creating isolated flat test world.");
             } else if (stage == 1 && mc.level != null && mc.player != null && mc.screen == null) {
-                VideoSettingsPersistence.tick();
-                check(
-                        mc.options.renderDistance().get() == 32
-                                && mc.options.simulationDistance().get() == 24,
-                        "Joining a world applies render 32 and simulation 24");
-                // Keep the isolated graphics fixture small after checking the real join policy.
-                mc.options.renderDistance().set(7);
-                mc.options.simulationDistance().set(8);
-                VideoSettingsPersistence.tick();
-                check(
-                        mc.options.renderDistance().get() == 7
-                                && mc.options.simulationDistance().get() == 8,
-                        "Distances can still be adjusted during the current session");
+                if (step == 0) {
+                    VideoSettingsPersistence.tick();
+                    check(
+                            mc.options.renderDistance().get() == 32
+                                    && mc.options.simulationDistance().get() == 24,
+                            "Joining a world applies render 32 and simulation 24");
+                    // Keep the isolated graphics fixture small after checking the real join policy.
+                    mc.options.renderDistance().set(7);
+                    mc.options.simulationDistance().set(8);
+                    VideoSettingsPersistence.tick();
+                    check(
+                            mc.options.renderDistance().get() == 7
+                                    && mc.options.simulationDistance().get() == 8,
+                            "Distances can still be adjusted during the current session");
+                }
                 if (++step < 60) return;
                 stage = 2;
                 step = 0;
