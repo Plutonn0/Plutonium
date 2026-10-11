@@ -7,7 +7,8 @@ namespace PlutoniumLauncher;
 
 public sealed record UpdateAsset(string Url, string Sha256);
 public sealed record ClientUpdateManifest(string Version, UpdateAsset Standalone, UpdateAsset Fabric);
-public sealed record LauncherUpdateManifest(string Version, UpdateAsset Executable);
+// Version is the legacy updater sequence; ReleaseVersion is the actual installed version.
+public sealed record LauncherUpdateManifest(string Version, UpdateAsset Executable, string? ReleaseVersion = null);
 public sealed record UpdateCheckResult(bool Configured, bool Available, string? Version, string Status);
 public sealed class UpdateService(HttpClient? httpClient = null)
 {
@@ -41,6 +42,12 @@ public sealed class UpdateService(HttpClient? httpClient = null)
             return (new(false, false, null, "Launcher update source not configured"), null);
         var manifest = await ReadManifestAsync<LauncherUpdateManifest>(manifestUrl, cancellationToken);
         ValidateAsset(manifest.Executable);
+        if (manifest.ReleaseVersion is not null)
+        {
+            if (!Version.TryParse(manifest.Version, out _) || !Version.TryParse(manifest.ReleaseVersion, out _))
+                throw new InvalidDataException("The launcher update manifest contains an invalid version.");
+            manifest = manifest with { Version = manifest.ReleaseVersion };
+        }
         var available = IsNewer(manifest.Version, currentVersion);
         return (new(true, available, manifest.Version, available ? $"Launcher update {manifest.Version} available" : "Launcher is up to date"), manifest);
     }

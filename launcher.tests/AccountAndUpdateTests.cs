@@ -14,6 +14,33 @@ public sealed class AccountAndUpdateTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "PlutoniumTests-" + Guid.NewGuid().ToString("N"));
     [Theory]
+    [InlineData("2.0.62", true)]
+    [InlineData("2.0.61", true)]
+    [InlineData("2.0.7", false)]
+    [InlineData("2.0.8", false)]
+    public async Task LauncherCompatibilityFeedUpdatesOldInstallsWithoutLooping(string installed, bool available)
+    {
+        using var http = new HttpClient(new LauncherCompatibilityHandler());
+        var result = await new UpdateService(http).CheckLauncherAsync("https://updates.example/launcher.json", installed);
+        Assert.Equal(available, result.Result.Available);
+        Assert.Equal("2.0.7", result.Manifest!.Version);
+        Assert.True(new Version("2.0.63") > new Version("2.0.62"));
+    }
+
+    private sealed class LauncherCompatibilityHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var asset = new UpdateAsset("https://updates.example/launcher.exe", new string('a', 64));
+            var manifest = new LauncherUpdateManifest("2.0.63", asset, "2.0.7");
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(manifest))
+            });
+        }
+    }
+
+    [Theory]
     [InlineData("2.0.7", "2.0.62", true)]
     [InlineData("2.0.7", "2.0.61", true)]
     [InlineData("2.0.62", "2.0.7", false)]
