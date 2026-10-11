@@ -13,6 +13,30 @@ namespace PlutoniumLauncher.Tests;
 public sealed class AccountAndUpdateTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "PlutoniumTests-" + Guid.NewGuid().ToString("N"));
+    [Theory]
+    [InlineData("2.0.7", "2.0.62", true)]
+    [InlineData("2.0.7", "2.0.61", true)]
+    [InlineData("2.0.62", "2.0.7", false)]
+    [InlineData("2.0.7", "2.0.7", false)]
+    public async Task HistoricalPatchVersionsMigrateToRequestedRelease(string remote, string current, bool expected)
+    {
+        using var http = new HttpClient(new VersionManifestHandler(remote));
+        var result = await new UpdateService(http).CheckClientAsync("https://updates.example/client.json", current);
+        Assert.Equal(expected, result.Result.Available);
+    }
+
+    private sealed class VersionManifestHandler(string version) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var asset = new UpdateAsset("https://updates.example/client.jar", new string('a', 64));
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new ClientUpdateManifest(version, asset, asset)))
+            });
+        }
+    }
+
     [Fact]
     public void AccountVaultRoundTripsWithoutPlaintextCredentials()
     {

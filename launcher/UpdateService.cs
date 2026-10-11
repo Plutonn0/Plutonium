@@ -142,6 +142,14 @@ public sealed class UpdateService(HttpClient? httpClient = null)
     {
         if (!Version.TryParse(remote, out var remoteVersion) || !Version.TryParse(current, out var currentVersion))
             throw new InvalidDataException("The update manifest contains an invalid version.");
-        return remoteVersion > currentVersion;
+        // 2.0.61/62 were published as patches of 2.0.6 before returning to 2.0.7.
+        // Normalize only those historical releases so the new launcher can migrate their clients.
+        static Version ReleaseOrder(Version version) => version.ToString() switch
+        {
+            "2.0.61" => new Version(2, 0, 6, 1),
+            "2.0.62" => new Version(2, 0, 6, 2),
+            _ => version
+        };
+        return ReleaseOrder(remoteVersion) > ReleaseOrder(currentVersion);
     }
 }
