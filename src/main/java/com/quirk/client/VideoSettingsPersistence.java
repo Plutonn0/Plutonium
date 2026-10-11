@@ -8,17 +8,29 @@ import net.minecraft.client.Options;
  */
 public final class VideoSettingsPersistence {
     private static Options owner;
+    private static Object session;
     private static int render, simulation, fps;
     private static long changedAt;
 
     private VideoSettingsPersistence() {}
 
     public static void tick() {
-        Options options = Minecraft.getInstance().options;
+        var mc = Minecraft.getInstance();
+        Options options = mc.options;
         if (options == null) return;
-        if (owner != options) {
+        var connection = mc.getConnection();
+        boolean started = owner != options;
+        boolean joined = mc.level != null && connection != null && connection != session;
+        if (connection == null) session = null;
+        if (started || joined) {
             owner = options;
+            if (joined) session = connection;
+            // Apply once per launch/connection, not every frame or dimension change.
+            options.renderDistance().set(32);
+            options.simulationDistance().set(24);
+            options.save();
             capture(options);
+            changedAt = 0;
             return;
         }
         if (render != options.renderDistance().get()

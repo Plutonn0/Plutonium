@@ -46,10 +46,10 @@ public final class SmokeTest {
                 Path videoProbe = mc.gameDirectory.toPath().resolve("video-settings-probe.txt");
                 if (Files.exists(videoProbe))
                     check(
-                            mc.options.renderDistance().get() == 7
-                                    && mc.options.simulationDistance().get() == 8
+                            mc.options.renderDistance().get() == 32
+                                    && mc.options.simulationDistance().get() == 24
                                     && mc.options.framerateLimit().get() == 160,
-                            "Video settings persist across a full Minecraft restart");
+                            "Relaunch applies 32/24 distances while preserving the FPS limit");
                 check(
                         mc.getResourceManager()
                                 .getResource(
@@ -95,6 +95,19 @@ public final class SmokeTest {
                 stage = 1;
                 System.out.println("[Plutonium smoke] Creating isolated flat test world.");
             } else if (stage == 1 && mc.level != null && mc.player != null && mc.screen == null) {
+                VideoSettingsPersistence.tick();
+                check(
+                        mc.options.renderDistance().get() == 32
+                                && mc.options.simulationDistance().get() == 24,
+                        "Joining a world applies render 32 and simulation 24");
+                // Keep the isolated graphics fixture small after checking the real join policy.
+                mc.options.renderDistance().set(7);
+                mc.options.simulationDistance().set(8);
+                VideoSettingsPersistence.tick();
+                check(
+                        mc.options.renderDistance().get() == 7
+                                && mc.options.simulationDistance().get() == 8,
+                        "Distances can still be adjusted during the current session");
                 if (++step < 60) return;
                 stage = 2;
                 step = 0;
